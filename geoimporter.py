@@ -1,8 +1,29 @@
+import os
+import re
+
 from tkinter import *
 from tkinter import ttk
 import geopandas as gpd
 import sqlalchemy as sa
 from geo.Geoserver import Geoserver
+
+
+def tiff_walk(geoserver, tiff_dir, workspace):
+    error_layer = []
+    for (root_dir, dirs, files) in os.walk(tiff_dir):
+        for file in files:
+            if re.search(r'.tif$', file):
+                filename = file[:-4]
+                print('Uploading ' + filename)
+                try:
+                    geoserver.create_coveragestore(layer_name=filename, path=root_dir + '/' + file, workspace=workspace)
+                except Exception as e:
+                    error_tuple = (filename, e)
+                    error_layer.append(filename)
+                    print('Error with ' + filename)
+                    continue
+
+    return error_layer
 
 
 class GeoImporter:
@@ -35,14 +56,15 @@ class GeoImporter:
         ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=3, row=3, sticky=E)
         ttk.Label(mainframe, textvariable=self.connected).grid(column=4, row=3)
 
+        # Can I implement a file finder?
         self.path = StringVar()
         path_entry = ttk.Entry(mainframe, width=10, textvariable=self.path)
         ttk.Label(mainframe, text="Path:").grid(column=1, row=4, sticky=E)
         path_entry.grid(column=2, row=4, sticky=(W, E))
-        ttk.Button(mainframe, text="Import", command=self.geoimport).grid(column=3, row=4, sticky=E)
+        ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=3, row=4, sticky=E)
 
-        output = Text(mainframe, width=40, height=10, state='disabled')
-        output.grid(column=2, row=5)
+        # output = Text(mainframe, width=40, height=10, state='disabled')
+        # output.grid(column=2, row=5)
 
         for child in mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
@@ -52,7 +74,6 @@ class GeoImporter:
         username = self.geo_user.get()
         password = self.geo_pass.get()
         self.geo = Geoserver(host, username=username, password=password)
-        testgeo = self.geo.get_version()
         try:
             self.geo.get_version()['about']
             self.connected.set('Connected!')
@@ -60,8 +81,14 @@ class GeoImporter:
             self.connected.set('Error, Connection failed!')
             pass
 
-    def geoimport(self):
-        print("Import These stuff")
+    def tiffimport(self):
+        tiff_dir = self.path.get()
+        path_exists = os.path.exists(tiff_dir)
+
+        if not path_exists:
+            return "Could not find path"
+        # Eventually need to change workspace for user's choice
+        return tiff_walk(self.geo, tiff_dir, workspace="CRC")
 
 
 root = Tk()
