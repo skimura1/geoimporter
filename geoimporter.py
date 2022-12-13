@@ -10,6 +10,7 @@ from geo.Geoserver import Geoserver
 
 def tiff_walk(geoserver, tiff_dir, workspace):
     error_layer = []
+    status = "Importing layer successful!"
     for (root_dir, dirs, files) in os.walk(tiff_dir):
         for file in files:
             if re.search(r'.tif$', file):
@@ -22,8 +23,32 @@ def tiff_walk(geoserver, tiff_dir, workspace):
                     error_layer.append(filename)
                     print('Error with ' + filename)
                     continue
+    if len(error_layer):
+        status = "There was an error in" + ''.join(error_layer)
+    return status
 
-    return error_layer
+# TODO: Create shp_walk(geoserver, engine, shp_dir, workspace)
+def shp_walk(geoserver, engine, shp_dir, workspace):
+    error_layer = []
+    insp = sa.inspect(engine)
+    for (root_dir, dirs, files) in os.walk(shp_dir):
+        for file in files:
+            filename = file[:-4]
+            if re.search(r'.shp$', file):
+                print("Uploading " + filename)
+                shp_file = gpd.read_file(root + "/" + file)
+                if not insp.has_table(filename, schema="public"):
+                    try:
+                        shp_file.to_postgis(filename, engine, index=True, index_label='Index')
+                    except Exception as e:
+                        error_tuple = (filename, e)
+                        error_layer.append(filename)
+                        print("Error with " + filename)
+                        continue
+                else:
+                    print(filename + ' exists already in PostgreSQL database!')
+                geoserver.publish_featurestore(workspace=workspace, store_name='PUC_SLR_Viewer', pg_table=filename)
+                print(filename + " upload completed!")
 
 
 class GeoImporter:
@@ -56,12 +81,15 @@ class GeoImporter:
         ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=3, row=3, sticky=E)
         ttk.Label(mainframe, textvariable=self.connected).grid(column=4, row=3)
 
-        # Can I implement a file finder?
+        # TODO: Implement file finder
         self.path = StringVar()
         path_entry = ttk.Entry(mainframe, width=10, textvariable=self.path)
         ttk.Label(mainframe, text="Path:").grid(column=1, row=4, sticky=E)
         path_entry.grid(column=2, row=4, sticky=(W, E))
         ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=3, row=4, sticky=E)
+
+        self.tiff_comp = StringVar()
+        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=2, row=5)
 
         # output = Text(mainframe, width=40, height=10, state='disabled')
         # output.grid(column=2, row=5)
@@ -81,14 +109,23 @@ class GeoImporter:
             self.connected.set('Error, Connection failed!')
             pass
 
+    # TODO: Create pg_connect()
+
+    # TODO: Create shpimport()
+
+    # TODO: Possible implement multiple paths and single TIFF files
     def tiffimport(self):
         tiff_dir = self.path.get()
         path_exists = os.path.exists(tiff_dir)
 
         if not path_exists:
-            return "Could not find path"
-        # Eventually need to change workspace for user's choice
-        return tiff_walk(self.geo, tiff_dir, workspace="CRC")
+            self.tiff_comp.set('Could not find path')
+        else:
+            self.tiff_comp.set('Path Could be found!')
+            # Eventually need to change workspace for user's choice
+            self.tiff_comp.set(tiff_walk(self.geo, tiff_dir, workspace="CRC"))
+    
+    # TODO: Create Delete layer interface
 
 
 root = Tk()
