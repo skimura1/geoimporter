@@ -4,7 +4,6 @@ import re
 from tkinter import *
 from tkinter import ttk
 import geopandas as gpd
-import psycopg2
 import sqlalchemy as sa
 import sqlalchemy.exc
 from geo.Geoserver import Geoserver
@@ -29,7 +28,6 @@ def tiff_walk(geoserver, tiff_dir, workspace):
         status = "There was an error in" + ''.join(error_layer)
     return status
 
-# TODO: Create shp_walk(geoserver, engine, shp_dir, workspace)
 def shp_walk(geoserver, engine, shp_dir, workspace):
     error_layer = []
     insp = sa.inspect(engine)
@@ -39,7 +37,7 @@ def shp_walk(geoserver, engine, shp_dir, workspace):
             filename = file[:-4]
             if re.search(r'.shp$', file):
                 print("Uploading " + filename)
-                shp_file = gpd.read_file(root + "/" + file)
+                shp_file = gpd.read_file(root_dir + "/" + file)
                 if not insp.has_table(filename, schema="public"):
                     try:
                         shp_file.to_postgis(filename, engine, index=True, index_label='Index')
@@ -53,9 +51,8 @@ def shp_walk(geoserver, engine, shp_dir, workspace):
                 geoserver.publish_featurestore(workspace=workspace, store_name='PUC_SLR_Viewer', pg_table=filename)
                 print(filename + " upload completed!")
     if len(error_layer):
-        if len(error_layer):
-            status = "There was an error in" + ''.join(error_layer)
-        return status
+        status = "There was an error in" + ''.join(error_layer)
+    return status
 
 class GeoImporter:
 
@@ -136,8 +133,8 @@ class GeoImporter:
         shp_path_entry.grid(column=2, row=9, sticky=(W, E))
         ttk.Button(mainframe, text="Import", command=self.shpimport).grid(column=3, row=9, sticky=E)
 
-        self.tiff_comp = StringVar()
-        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=4, row=9)
+        self.shp_comp = StringVar()
+        ttk.Label(mainframe, textvariable=self.shp_comp).grid(column=4, row=9)
 
 
         for child in mainframe.winfo_children():
@@ -155,7 +152,6 @@ class GeoImporter:
             self.connected.set('Error, Connection failed!')
             pass
 
-    # TODO: Create pg_connect()
     def pg_connect(self):
         engine = sa.create_engine('postgresql://' + self.pg_user.get() + ':' + self.pg_pass.get() + '@' + self.pg_host.get() + ":" + self.pg_port.get() + '/' + self.pg_database.get())
         store_created = False
@@ -181,7 +177,6 @@ class GeoImporter:
 
         return engine
 
-    # TODO: Create shpimport()
     def shpimport(self):
         shp_dir = self.shp_path.get()
         engine = self.pg_connect()
