@@ -28,7 +28,7 @@ def tiff_walk(geoserver, tiff_dir, workspace):
     return status
 
 # TODO: Create shp_walk(geoserver, engine, shp_dir, workspace)
-def shp_walk(geoserver, engine, shp_dir, workspace):
+def shp_walk(geoserver, shp_dir, workspace):
     error_layer = []
     insp = sa.inspect(engine)
     for (root_dir, dirs, files) in os.walk(shp_dir):
@@ -89,7 +89,29 @@ class GeoImporter:
         ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=3, row=4, sticky=E)
 
         self.tiff_comp = StringVar()
-        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=2, row=5)
+        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=4, row=4)
+
+        self.pg_user = StringVar()
+        pg_usr_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_user)
+        ttk.Label(mainframe, text="PG User:").grid(column=1, row=5, sticky=E)
+        pg_usr_entry.grid(column=2, row=5, sticky=(W, E))
+
+        self.pg_pass = StringVar()
+        pg_pass_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_pass)
+        ttk.Label(mainframe, text="PG Pass:").grid(column=1, row=6, sticky=E)
+        pg_pass_entry.grid(column=2, row=6, sticky=(W, E))
+
+        self.pg_host = StringVar()
+        pg_host_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_host)
+        ttk.Label(mainframe, text="PG Host:").grid(column=1, row=7, sticky=E)
+        pg_host_entry.grid(column=2, row=7, sticky=(W, E))
+
+        self.pg_database = StringVar()
+        pg_db_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_database)
+        ttk.Label(mainframe, text="PG DB:").grid(column=1, row=8, sticky=E)
+        pg_db_entry.grid(column=2, row=8, sticky=(W, E))
+
+        ttk.Button(mainframe, text="DB Connect", command=self.pg_connect).grid(column=3, row=8, sticky=E)
 
         # output = Text(mainframe, width=40, height=10, state='disabled')
         # output.grid(column=2, row=5)
@@ -110,6 +132,19 @@ class GeoImporter:
             pass
 
     # TODO: Create pg_connect()
+    def pg_connect(self):
+        engine = sa.create_engine('postgresql://' + self.pg_user + ':' + self.pg_pass + '@' + self.pg_host + '/' + self.pg_database)
+        store_created = False
+        store_exists = self.geo.get_featurestore(store_name="PUC_SLR_Viewer", workspace="CRC")
+        if not store_exists:
+            self.geo.create_featurestore(store_name='PUC_SLR_Viewer', workspace='CRC', db='PUC_SLR_Viewer',
+                                               host=self.pg_host,
+                                               port=self.pg_port, pg_user=self.pg_user,
+                                               pg_password=self.pg_user, schema=self.pg_schema)
+            store_created = True
+
+
+
 
     # TODO: Create shpimport()
 
