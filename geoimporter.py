@@ -4,7 +4,9 @@ import re
 from tkinter import *
 from tkinter import ttk
 import geopandas as gpd
+import psycopg2
 import sqlalchemy as sa
+import sqlalchemy.exc
 from geo.Geoserver import Geoserver
 
 
@@ -28,9 +30,10 @@ def tiff_walk(geoserver, tiff_dir, workspace):
     return status
 
 # TODO: Create shp_walk(geoserver, engine, shp_dir, workspace)
-def shp_walk(geoserver, shp_dir, workspace):
+def shp_walk(geoserver, engine, shp_dir, workspace):
     error_layer = []
     insp = sa.inspect(engine)
+    status = "Importing layer successful!"
     for (root_dir, dirs, files) in os.walk(shp_dir):
         for file in files:
             filename = file[:-4]
@@ -49,7 +52,10 @@ def shp_walk(geoserver, shp_dir, workspace):
                     print(filename + ' exists already in PostgreSQL database!')
                 geoserver.publish_featurestore(workspace=workspace, store_name='PUC_SLR_Viewer', pg_table=filename)
                 print(filename + " upload completed!")
-
+    if len(error_layer):
+        if len(error_layer):
+            status = "There was an error in" + ''.join(error_layer)
+        return status
 
 class GeoImporter:
 
@@ -82,10 +88,10 @@ class GeoImporter:
         ttk.Label(mainframe, textvariable=self.connected).grid(column=4, row=3)
 
         # TODO: Implement file finder
-        self.path = StringVar()
-        path_entry = ttk.Entry(mainframe, width=10, textvariable=self.path)
-        ttk.Label(mainframe, text="Path:").grid(column=1, row=4, sticky=E)
-        path_entry.grid(column=2, row=4, sticky=(W, E))
+        self.tiff_path = StringVar()
+        tiff_path_entry = ttk.Entry(mainframe, width=10, textvariable=self.tiff_path)
+        ttk.Label(mainframe, text="Raster/TIFF Path:").grid(column=1, row=4, sticky=E)
+        tiff_path_entry.grid(column=2, row=4, sticky=(W, E))
         ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=3, row=4, sticky=E)
 
         self.tiff_comp = StringVar()
@@ -106,6 +112,11 @@ class GeoImporter:
         ttk.Label(mainframe, text="PG Host:").grid(column=1, row=7, sticky=E)
         pg_host_entry.grid(column=2, row=7, sticky=(W, E))
 
+        self.pg_port = StringVar()
+        pg_host_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_port)
+        ttk.Label(mainframe, text="Port:").grid(column=3, row=7, sticky=E)
+        pg_host_entry.grid(column=4, row=7, sticky=(W, E))
+
         self.pg_database = StringVar()
         pg_db_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_database)
         ttk.Label(mainframe, text="PG DB:").grid(column=1, row=8, sticky=E)
@@ -113,8 +124,21 @@ class GeoImporter:
 
         ttk.Button(mainframe, text="DB Connect", command=self.pg_connect).grid(column=3, row=8, sticky=E)
 
+        self.dbconnected = StringVar()
+        ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=4, row=8)
+
         # output = Text(mainframe, width=40, height=10, state='disabled')
         # output.grid(column=2, row=5)
+
+        self.shp_path = StringVar()
+        shp_path_entry = ttk.Entry(mainframe, width=10, textvariable=self.shp_path)
+        ttk.Label(mainframe, text="Shapefile Path:").grid(column=1, row=9, sticky=E)
+        shp_path_entry.grid(column=2, row=9, sticky=(W, E))
+        ttk.Button(mainframe, text="Import", command=self.shpimport).grid(column=3, row=9, sticky=E)
+
+        self.tiff_comp = StringVar()
+        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=4, row=9)
+
 
         for child in mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
@@ -133,30 +157,51 @@ class GeoImporter:
 
     # TODO: Create pg_connect()
     def pg_connect(self):
-        engine = sa.create_engine('postgresql://' + self.pg_user + ':' + self.pg_pass + '@' + self.pg_host + '/' + self.pg_database)
+        engine = sa.create_engine('postgresql://' + self.pg_user.get() + ':' + self.pg_pass.get() + '@' + self.pg_host.get() + ":" + self.pg_port.get() + '/' + self.pg_database.get())
         store_created = False
-        store_exists = self.geo.get_featurestore(store_name="PUC_SLR_Viewer", workspace="CRC")
+        if self.geo.get_version():
+            store_exists = self.geo.get_featurestore(store_name="PUC_SLR_Viewer", workspace="CRC")
+        else:
+            print("Geoserver not connected")
         if not store_exists:
             self.geo.create_featurestore(store_name='PUC_SLR_Viewer', workspace='CRC', db='PUC_SLR_Viewer',
                                                host=self.pg_host,
                                                port=self.pg_port, pg_user=self.pg_user,
                                                pg_password=self.pg_user, schema=self.pg_schema)
             store_created = True
+        if store_created:
+            print("Store has been created")
+        try:
+            engine.connect()
+            print('Database connected!')
+            self.dbconnected.set('Database connected!')
+        except sqlalchemy.exc.OperationalError:
+            print('Failed to connect to Database')
+            self.dbconnected.set('Failed to connect to database!')
 
-
-
+        return engine
 
     # TODO: Create shpimport()
+    def shpimport(self):
+        shp_dir = self.shp_path.get()
+        engine = self.pg_connect()
+        path_exists = os.path.exists(shp_dir)
+
+        if not path_exists:
+            self.shp_comp.set('Could not find path')
+        else:
+            self.shp_comp.set('Path could be found!')
+            self.shp_comp.set(shp_walk(self.geo, engine, shp_dir, 'CRC'))
 
     # TODO: Possible implement multiple paths and single TIFF files
     def tiffimport(self):
-        tiff_dir = self.path.get()
+        tiff_dir = self.tiff_path.get()
         path_exists = os.path.exists(tiff_dir)
 
         if not path_exists:
             self.tiff_comp.set('Could not find path')
         else:
-            self.tiff_comp.set('Path Could be found!')
+            self.tiff_comp.set('Path could be found!')
             # Eventually need to change workspace for user's choice
             self.tiff_comp.set(tiff_walk(self.geo, tiff_dir, workspace="CRC"))
     
