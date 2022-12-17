@@ -9,6 +9,13 @@ import sqlalchemy.exc
 from geo.Geoserver import Geoserver
 
 def tiff_walk(geoserver, tiff_dir, workspace):
+    """
+    Walk through all the directories looking for TIFF/Raster files and uploading to Geoserver
+    :param geoserver: the geoserver that we want to publish the files onto
+    :param tiff_dir: the directory that we are trying to "walk through"
+    :param workspace: the workspace on geoserver that will hold the layer
+    :return: the status of the operation; whether it has failed or succeeded
+    """
     error_layer = []
     import_num = 0
     print("Tiff file importing initialized...")
@@ -32,6 +39,16 @@ def tiff_walk(geoserver, tiff_dir, workspace):
     return status
 
 def shp_walk(geoserver, engine, shp_dir, workspace, storename):
+    """
+    Walk through all the directories looking for shapefiles and uploading them to the PostgreSQL/POSTGIS DB.
+    Then make a connection the geoserver, so the layers on PostgreSQL/POSTGIS DB can be published on Geoserver.
+    :param geoserver: the geoserver that we want to publish the files onto
+    :param engine: the database connection that we want to upload the files from
+    :param shp_dir: the directory that the shapefiles are stored
+    :param workspace: the workspace on geoserver that will hold the layer
+    :param storename: the storename on geoserver that will be basis of connection to POSTGIS DB
+    :return: the status of the operation; whether it has failed or succeeded
+    """
     error_layer = []
     import_num = 0
     insp = sa.inspect(engine)
@@ -52,7 +69,7 @@ def shp_walk(geoserver, engine, shp_dir, workspace, storename):
                         continue
                 else:
                     print(filename + ' exists already in PostgreSQL database!')
-                if geoserver.publish_featurestore(workspace=workspace, store_name=storename, pg_table=filename) == "None":
+                if geoserver.publish_featurestore(workspace=workspace, store_name=storename, pg_table=filename) is None:
                     print(filename + " upload completed to Geoserver!")
                     import_num += 1
     status = 'Successfully imported ' + str(import_num) + ' layers!'
@@ -66,108 +83,136 @@ class GeoImporter:
         self.geo = Geoserver()
         root.title("GeoImporter")
 
+        # initiate the tkinter frame to hold widgets
         mainframe = ttk.Frame(root, padding="3 3 12 12")
         mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
+        # geoserver hostname field
         self.geo_host = StringVar()
-        self.geo_host.set("http://128.171.159.31:8600/geoserver")
+        self.geo_host.set("https://crcgeo.soest.hawaii.edu/geoserver")
         host_entry = ttk.Entry(mainframe, width=20, textvariable=self.geo_host)
         ttk.Label(mainframe, text="Geoserver Url:").grid(column=1, row=1, sticky=E)
         host_entry.grid(column=2, row=1, sticky=(W, E))
 
+        # geoserver username field
         self.geo_user = StringVar()
         self.geo_user.set("admin")
         user_entry = ttk.Entry(mainframe, width=10, textvariable=self.geo_user)
         ttk.Label(mainframe, text="Username:").grid(column=1, row=2, sticky=E)
         user_entry.grid(column=2, row=2, sticky=(W, E))
 
+        # geoserver password field
         self.geo_pass = StringVar()
         pass_entry = ttk.Entry(mainframe, width=10, textvariable=self.geo_pass, show="*")
         ttk.Label(mainframe, text="Password:").grid(column=1, row=3, sticky=E)
         pass_entry.grid(column=2, row=3, sticky=(W, E))
 
+        # geoserver connection button
         self.connected = StringVar()
         ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=3, row=3, sticky=E)
+        # display if the geoserver was successfully connected to
         ttk.Label(mainframe, textvariable=self.connected).grid(column=4, row=3)
 
+        # geoserver workspace field
         self.workspace = StringVar()
+        # default value is "CRC"
         self.workspace.set("CRC")
         workspace_entry = ttk.Entry(mainframe, width=10, textvariable=self.workspace)
         ttk.Label(mainframe, text="Workspace:").grid(column=1, row=4, sticky=E)
         workspace_entry.grid(column=2, row=4, sticky=(W, E))
+
+        # button to create workspace on the geoserver
         ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=3, row=4, sticky=E)
 
+        # tiff/raster path field
         self.tiff_path = StringVar()
-        self.tiff_arr = tuple()
         tiff_path_entry = ttk.Entry(mainframe, width=10, textvariable=self.tiff_path)
         ttk.Label(mainframe, text="Raster/TIFF Path:").grid(column=1, row=5, sticky=E)
         tiff_path_entry.grid(column=2, row=5, sticky=(W, E))
+        # file explorer button
         ttk.Button(mainframe, text="Dir", command= lambda: self.get_dir(0)).grid(column=3, row=5, sticky=E)
+        # import into geoserver button
         ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=4, row=5, sticky=W)
 
+        # display if the layers have been imported
         self.tiff_comp = StringVar()
-        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=6, row=4)
+        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=6, row=5)
 
+        # POSTGIS DB user field
         self.pg_user = StringVar()
         self.pg_user.set("docker")
         pg_usr_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_user)
         ttk.Label(mainframe, text="PG User:").grid(column=1, row=6, sticky=E)
         pg_usr_entry.grid(column=2, row=6, sticky=(W, E))
 
+        # POSTGIS DB password field
         self.pg_pass = StringVar()
-        pg_pass_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_pass)
+        pg_pass_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_pass, show="*")
         ttk.Label(mainframe, text="PG Pass:").grid(column=1, row=7, sticky=E)
         pg_pass_entry.grid(column=2, row=7, sticky=(W, E))
 
+        # POSTGIS hostname field
         self.pg_host = StringVar()
         self.pg_host.set("128.171.159.31")
         pg_host_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_host)
         ttk.Label(mainframe, text="PG Host:").grid(column=1, row=8, sticky=E)
         pg_host_entry.grid(column=2, row=8, sticky=(W, E))
 
+        # POSTGIS port field
         self.pg_port = StringVar()
         self.pg_port.set("32767")
         pg_port = ttk.Entry(mainframe, width=10, textvariable=self.pg_port)
         ttk.Label(mainframe, text="Port:").grid(column=3, row=8, sticky=W)
         pg_port.grid(column=4, row=8, sticky=(W, E))
 
+        # POSTGIS database name field
         self.pg_database = StringVar()
         self.pg_database.set("PUC_SLR_Viewer")
         pg_db_entry = ttk.Entry(mainframe, width=10, textvariable=self.pg_database)
         ttk.Label(mainframe, text="PG DB:").grid(column=1, row=9, sticky=E)
         pg_db_entry.grid(column=2, row=9, sticky=(W, E))
 
+        # geoserver storename field
         self.storename = StringVar()
         self.storename.set("SLR Viewer")
         storename_entry = ttk.Entry(mainframe, width=10, textvariable=self.storename)
         ttk.Label(mainframe, text="Storename:").grid(column=1, row=10, sticky=E)
         storename_entry.grid(column=2, row=10, sticky=(W, E))
 
+        # Button to check connection to database
         ttk.Button(mainframe, text="DB Connect", command=self.pg_connect).grid(column=3, row=10, sticky=W)
-
+        # Display if the connection is good
         self.dbconnected = StringVar()
         ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=4, row=10)
 
+        # Possible output field...
         # output = Text(mainframe, width=40, height=10, state='disabled')
         # output.grid(column=2, row=5)
 
+        # Shapefile directory path field
         self.shp_path = StringVar()
         shp_path_entry = ttk.Entry(mainframe, width=10, textvariable=self.shp_path)
         ttk.Label(mainframe, text="Shapefile Path:").grid(column=1, row=11, sticky=E)
         shp_path_entry.grid(column=2, row=11, sticky=(W, E))
+        # button to open fileexporer
         ttk.Button(mainframe, text="Dir", command=lambda: self.get_dir(1)).grid(column=3, row=11, sticky=W)
         ttk.Button(mainframe, text="Import", command=self.shpimport).grid(column=4, row=11, sticky=W)
 
+        # display if the shapefiles succesfully imported
         self.shp_comp = StringVar()
         ttk.Label(mainframe, textvariable=self.shp_comp).grid(column=5, row=11)
 
-
+        # add x and y padding to every component
         for child in mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
 
     def geoconnect(self):
+        """
+        Connect to the geoserver
+        :return:
+        """
         host = self.geo_host.get()
         username = self.geo_user.get()
         password = self.geo_pass.get()
@@ -180,6 +225,10 @@ class GeoImporter:
             pass
 
     def create_workspace(self):
+        """
+        Check if the workspace exists, if not, create a workspace
+        :return:
+        """
         if self.geo.get_workspace(self.workspace.get()):
             print("Workspace exists")
         else:
@@ -187,6 +236,10 @@ class GeoImporter:
             print("Workspace created")
 
     def tiffimport(self):
+        """
+        Create workspace if exists, and import TIFF/Raster layers on to geoserver
+        :return:
+        """
         tiff_dir = self.tiff_path.get()
         path_exists = os.path.exists(tiff_dir)
         if not path_exists:
@@ -197,6 +250,10 @@ class GeoImporter:
             self.tiff_comp.set(tiff_walk(self.geo, tiff_dir, workspace=self.workspace.get()))
 
     def shpimport(self):
+        """
+        Create workspace if doesn't exists, and import shape files onto PG DB and publish on geoserver
+        :return:
+        """
         shp_dir = self.shp_path.get()
         engine = self.pg_connect()
         path_exists = os.path.exists(shp_dir)
@@ -208,6 +265,10 @@ class GeoImporter:
             self.shp_comp.set(shp_walk(self.geo, engine, shp_dir, workspace=self.workspace.get(), storename=self.storename.get()))
 
     def pg_connect(self):
+        """
+        Create featurestore and connect to PG DB
+        :return: DB engine for further access/manipulation
+        """
         user = self.pg_user.get()
         passw = self.pg_pass.get()
         host = self.pg_host.get()
@@ -216,6 +277,8 @@ class GeoImporter:
         store = self.storename.get()
         workspace = self.workspace.get()
         engine = sa.create_engine('postgresql://' + user + ':' + passw + '@' + host + ":" + port + '/' + db)
+
+        # Could maybe have another function for the geoserver functions
         if self.geo.get_version():
             store_exists = self.geo.get_featurestore(store_name=store, workspace=workspace)
         else:
@@ -240,6 +303,11 @@ class GeoImporter:
         return engine
 
     def get_dir(self, shp):
+        """
+        Set the path for shapefile or tiff
+        :param shp: binary option to set to the shape file or tiff
+        :return:
+        """
         if shp:
             self.shp_path.set(filedialog.askdirectory())
         else:
