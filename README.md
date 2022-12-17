@@ -5,12 +5,23 @@ Tool to import raster/shapefile layers into the Geoserver using Python package f
 tkinter GUI package. The tool allows users to set a directory for the layers to import and streamline the process of publishing the layers
 on to the Geoserver application. The tool will go into every subdirectory and import only files with .shp or .tif extension. Shapefiles
 are imported into a PostgreSQL/PostGIS DB, and then they are published on Geoserver. Therefore, the tool will need to be able to connect
-to a PostgreSQL/PostGIS DB. The tool has been created to have a graphical interface for the importing scripts.
+to a PostgreSQL/PostGIS DB. The tool has been created to have a graphical interface for the importing scripts. 
+
+## Geoserver-rest.py
+Barebones script that is the precursor to the GUI. Feel free to use the barebones script.
+
+## Packages Used
+[tkinter](https://docs.python.org/3/library/tkinter.html)
+[geopandas](https://geopandas.org/en/stable/index.html)
+[sqlalchemy](https://www.sqlalchemy.org)
+[geoserver](https://geoserver.org)
+[os](https://docs.python.org/3/library/os.html)
+[re](https://docs.python.org/3/library/re.html)
 
 ## Notes
 Unfortunately, due to limited will power and effort in implementing features into tkinter, there is no way to import a single layer.
 There will be no further development for this current iteration of the tool because there are alternative user interface frameworks that
-are more powerful and could be a good reimplemntation for this tool. 
+are more powerful and could be a good reimplemntation for this tool.
 
 ## Installation
 Execute ```python -m pip install -r requirements.txt``` to install requirements
