@@ -61,7 +61,7 @@ class GeoImporter(tk.Frame):
         ttk.Label(mainframe, text="Raster/TIFF Path:").grid(column=1, row=5, sticky="E")
         tiff_listbox.grid(column=2, row=5, sticky="W")
         # file explorer button
-        ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff")).grid(column=3, row=5, sticky=E)
+        ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff", tiff_listbox)).grid(column=3, row=5, sticky="E")
         # import into geoserver button
         ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=4, row=5, sticky="W")
 
@@ -126,7 +126,7 @@ class GeoImporter(tk.Frame):
         ttk.Label(mainframe, text="Shapefile Path:").grid(column=1, row=11, sticky="E")
         shp_listbox.grid(column=2, row=11, sticky="W")
         # button to open fileexporer
-        ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape")).grid(column=3, row=11, sticky=W)
+        ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape", shp_listbox)).grid(column=3, row=11, sticky="W")
         ttk.Button(mainframe, text="Import", command=self.shpimport).grid(column=4, row=11, sticky="W")
 
         # display if the shapefiles succesfully imported
@@ -233,18 +233,28 @@ class GeoImporter(tk.Frame):
 
         return engine
 
-    def get_files(self, shp: str):
+    def get_files(self, type: str, listbox: tk.Listbox):
         """
         Set the path for shapefile or tiff
         :param shp: binary option to set to the shape file or tiff
         :return:
         """
-        if shp == "shape":            
+        listbox.delete(0, tk.END)
+        if type == "shape":            
+            self.shp_files = []
             files = filedialog.askopenfilenames(filetypes=[('Shapefiles', '*.shp')])
             self.shp_files += files
+            for file in self.shp_files:
+                filename = os.path.basename(file)
+                print(filename)
+                listbox.insert(tk.END, filename)
         else:
+            self.tiff_files = []
             files = filedialog.askopenfilenames(filetypes=[('Raster', '*.tif'), ('Raster', '*.tiff')])
             self.tiff_files += files
+            for file in self.tiff_files:
+                filename = os.path.basename(file)
+                listbox.insert(tk.END, filename)
 
 
 if __name__ == "__main__":
