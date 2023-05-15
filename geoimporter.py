@@ -57,10 +57,14 @@ class GeoImporter:
         ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=3, row=4, sticky=E)
 
         # tiff/raster path field
+        self.tiff_files: List[str] = [] 
+        tiff_path_entry = Listbox(mainframe, width=20)
+        for file in self.tiff_files:
+            tiff_path_entry.insert("end", file)
         ttk.Label(mainframe, text="Raster/TIFF Path:").grid(column=1, row=5, sticky=E)
         tiff_path_entry.grid(column=2, row=5, sticky=W)
         # file explorer button
-        ttk.Button(mainframe, text="Dir", command= lambda: self.get_dir(0)).grid(column=3, row=5, sticky=E)
+        ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff")).grid(column=3, row=5, sticky=E)
         # import into geoserver button
         ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=4, row=5, sticky=W)
 
@@ -120,12 +124,14 @@ class GeoImporter:
         # output.grid(column=2, row=5)
 
         # Shapefile directory path field
-        self.shp_path = StringVar()
-        shp_path_entry = ttk.Entry(mainframe, width=10, textvariable=self.shp_path)
+        self.shp_files: List[str] = [] 
+        shp_path_entry = Listbox(mainframe, width=20)
+        for filepath in self.shp_files:
+            shp_path_entry.insert("end", filepath)
         ttk.Label(mainframe, text="Shapefile Path:").grid(column=1, row=11, sticky=E)
         shp_path_entry.grid(column=2, row=11, sticky=W)
         # button to open fileexporer
-        ttk.Button(mainframe, text="Dir", command=lambda: self.get_dir(1)).grid(column=3, row=11, sticky=W)
+        ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape")).grid(column=3, row=11, sticky=W)
         ttk.Button(mainframe, text="Import", command=self.shpimport).grid(column=4, row=11, sticky=W)
 
         # display if the shapefiles succesfully imported
@@ -168,7 +174,7 @@ class GeoImporter:
         Create workspace if exists, and import TIFF/Raster layers on to geoserver
         :return:
         """
-        tiff_dir = self.tiff_path.get()
+        tiff_dir = self.tiff_files.get()
         path_exists = os.path.exists(tiff_dir)
         if not path_exists:
             self.tiff_comp.set('Could not find path')
@@ -230,16 +236,18 @@ class GeoImporter:
 
         return engine
 
-    def get_dir(self, shp):
+    def get_files(self, shp: str):
         """
         Set the path for shapefile or tiff
         :param shp: binary option to set to the shape file or tiff
         :return:
         """
-        if shp:
-            self.shp_path.set(filedialog.askdirectory())
+        if shp == "shape":            
+            files = filedialog.askopenfilenames(filetypes=[('Shapefiles', '*.shp')])
+            self.shp_files += files
         else:
-            self.tiff_path.set(filedialog.askdirectory())
+            files = filedialog.askopenfilenames(filetypes=[('Raster', '*.tif'), ('Raster', '*.tiff')])
+            self.tiff_files += files
 
 root = Tk()
 GeoImporter(root)
