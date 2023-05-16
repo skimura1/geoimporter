@@ -3,6 +3,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import List
+from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 import sqlalchemy as sa
 import sqlalchemy.exc
 from geo.Geoserver import Geoserver
@@ -63,7 +64,7 @@ class GeoImporter(tk.Frame):
         # file explorer button
         ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff", tiff_listbox)).grid(column=3, row=5, sticky="E")
         # import into geoserver button
-        ttk.Button(mainframe, text="Import", command=self.tiffimport).grid(column=4, row=5, sticky="W")
+        ttk.Button(mainframe, text="Import", command= lambda: self.tiffimport(self.tiff_files)).grid(column=4, row=5, sticky="W")
 
         # display if the layers have been imported
         self.tiff_comp = tk.StringVar()
@@ -127,7 +128,7 @@ class GeoImporter(tk.Frame):
         shp_listbox.grid(column=2, row=11, sticky="W")
         # button to open fileexporer
         ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape", shp_listbox)).grid(column=3, row=11, sticky="W")
-        ttk.Button(mainframe, text="Import", command=self.shpimport).grid(column=4, row=11, sticky="W")
+        ttk.Button(mainframe, text="Import", command= lambda: self.shpimport(self.shp_files)).grid(column=4, row=11, sticky="W")
 
         # display if the shapefiles succesfully imported
         self.shp_comp = tk.StringVar()
@@ -164,36 +165,38 @@ class GeoImporter(tk.Frame):
             self.geo.create_workspace(self.workspace.get())
             print("Workspace created")
 
-    #TODO: make tiff import take an individual file as a parameter
-    def tiffimport(self):
+    def tiffimport(self, tiff_files: List[str] ):
         """
         Create workspace if exists, and import TIFF/Raster layers on to geoserver
         :return:
         """
+        count = 0
+        for file in tiff_files:
+            if not os.path.isfile(file):
+                self.tiff_comp.set('Error! Could not find raster file.')
+                return False
+            else:
+                if upload_raster(geoserver=self.geo, filepath=file, workspace=self.workspace.get()):
+                    count += 1
+                    print('Successfully uploaded ' + os.path.basename(file))
+        self.tiff_comp.set('Successfully uploaded ' + str(count) + ' Raster Files!')
 
-        # 
-        path_exists = os.path.exists(tiff_dir)
-        if not path_exists:
-            self.tiff_comp.set('Could not find path')
-        else:
-            self.tiff_comp.set('Path could be found!')
-            self.create_workspace()
-            self.tiff_comp.set(tiff_walk(self.geo, tiff_dir, workspace=self.workspace.get()))
-
-    def shpimport(self):
+    def shpimport(self, file):
         """
         Create workspace if doesn't exists, and import shape files onto PG DB and publish on geoserver
         :return:
         """
-        shp_dir = self.shp_path.get()
+        shp_dir = os.path.dirname(file)
         engine = self.pg_connect()
         path_exists = os.path.exists(shp_dir)
+        count = 0
         if not path_exists:
             self.shp_comp.set('Error! Could not access path:' + shp_dir)
         else:
-            self.create_workspace()
             self.shp_comp.set('Path could be found! Importing from ' + shp_dir)
-            self.shp_comp.set(shp_walk(self.geo, engine, shp_dir, workspace=self.workspace.get(), storename=self.storename.get()))
+            if upload_postgis(file, engine) and upload_shapefile(geoserver=self.geo, filepath=file, workspace=self.workspace.get(), storename=self.storename.get()):
+                count += 1
+        self.shp_comp.set('Successfully uploaded ' + str(count) + ' Shapefiles!')
 
     def pg_connect(self):
         """
@@ -203,7 +206,7 @@ class GeoImporter(tk.Frame):
         user = self.pg_user.get()
         passw = self.pg_pass.get()
         host = self.pg_host.get()
-        port = self.pg_port.get()
+        port = int(self.pg_port.get())
         db = self.pg_database.get()
         store = self.storename.get()
         workspace = self.workspace.get()
