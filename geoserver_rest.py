@@ -32,7 +32,9 @@ def upload_postgis(filepath, engine):
 def upload_shapefile(geoserver, filepath, workspace, storename):
     filename = os.path.basename(filepath)
     print("Uploading " + filename)
-    if geoserver.publish_featurestore(workspace=workspace, store_name=storename, pg_table=filename[:-4]) is not None:
+    try:
+        geoserver.publish_featurestore(workspace=workspace, store_name=storename, pg_table=filename[:-4])
+    except Exception as e:
         print("Something went wrong with uploading Geoserver")
         return False
     print(filename + " upload completed to Geoserver!")

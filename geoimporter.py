@@ -3,6 +3,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import List
+
 from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 import sqlalchemy as sa
 import sqlalchemy.exc
@@ -111,8 +112,9 @@ class GeoImporter(tk.Frame):
         ttk.Label(mainframe, text="Storename:").grid(column=1, row=10, sticky="E")
         storename_entry.grid(column=2, row=10, sticky="W")
 
+        self.engine = None
         # Button to check connection to database
-        ttk.Button(mainframe, text="DB Connect", command=self.pg_connect).grid(column=3, row=10, sticky="W")
+        ttk.Button(mainframe, text="DB Connect", command=lambda: self.set_engine(self.pg_connect())).grid(column=3, row=10, sticky="W")
         # Display if the connection is good
         self.dbconnected = tk.StringVar()
         ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=4, row=10)
@@ -137,6 +139,7 @@ class GeoImporter(tk.Frame):
         # add x and y padding to every component
         for child in mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
+
 
     def geoconnect(self):
         """
@@ -181,22 +184,30 @@ class GeoImporter(tk.Frame):
                     print('Successfully uploaded ' + os.path.basename(file))
         self.tiff_comp.set('Successfully uploaded ' + str(count) + ' Raster Files!')
 
-    def shpimport(self, file):
+    def shpimport(self, shp_files: List[str]):
         """
         Create workspace if doesn't exists, and import shape files onto PG DB and publish on geoserver
         :return:
         """
-        shp_dir = os.path.dirname(file)
-        engine = self.pg_connect()
-        path_exists = os.path.exists(shp_dir)
         count = 0
-        if not path_exists:
-            self.shp_comp.set('Error! Could not access path:' + shp_dir)
+        error = []
+        for file in shp_files:
+            if not os.path.isfile(file):
+                self.shp_comp.set('Error! Could not find shape file.')
+                return False
+            else:
+                if upload_postgis(file, self.engine) and upload_shapefile(geoserver=self.geo, filepath=file, workspace=self.workspace.get(), storename=self.storename.get()):
+                    count += 1
+                    print('Successfully uploaded ' + os.path.basename(file))
+                else:
+                    error.append(os.path.basename(file))
+                    print(error)
+        if count == len(shp_files):
+            self.shp_comp.set('Successfully uploaded all Shapefiles!')
         else:
-            self.shp_comp.set('Path could be found! Importing from ' + shp_dir)
-            if upload_postgis(file, engine) and upload_shapefile(geoserver=self.geo, filepath=file, workspace=self.workspace.get(), storename=self.storename.get()):
-                count += 1
-        self.shp_comp.set('Successfully uploaded ' + str(count) + ' Shapefiles!')
+            error_layers = ' '.join(error)
+            self.shp_comp.set('There was an error in ' + error_layers)
+
 
     def pg_connect(self):
         """
@@ -206,7 +217,7 @@ class GeoImporter(tk.Frame):
         user = self.pg_user.get()
         passw = self.pg_pass.get()
         host = self.pg_host.get()
-        port = int(self.pg_port.get())
+        port = str(self.pg_port.get())
         db = self.pg_database.get()
         store = self.storename.get()
         workspace = self.workspace.get()
@@ -221,7 +232,7 @@ class GeoImporter(tk.Frame):
         if type(store_exists) is str:
             self.geo.create_featurestore(store_name=store, workspace=workspace, db=db,
                                                host=host,
-                                               port=port, pg_user=user,
+                                               port=int(port), pg_user=user,
                                                pg_password=passw, schema="public")
             print("Feature store created!")
         else:
@@ -233,7 +244,6 @@ class GeoImporter(tk.Frame):
         except sqlalchemy.exc.OperationalError:
             print('Failed to connect to Database')
             self.dbconnected.set('Failed to connect to database!')
-
         return engine
 
     def get_files(self, type: str, listbox: tk.Listbox):
@@ -258,6 +268,9 @@ class GeoImporter(tk.Frame):
             for file in self.tiff_files:
                 filename = os.path.basename(file)
                 listbox.insert(tk.END, filename)
+
+    def set_engine(self, engine): 
+        self.engine = engine
 
 
 if __name__ == "__main__":
