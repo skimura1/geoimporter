@@ -7,6 +7,7 @@ from typing import List
 from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 import sqlalchemy as sa
 import sqlalchemy.exc
+import peewee as pw
 from geo.Geoserver import Geoserver
 
 class GeoImporter(tk.Frame):
@@ -221,7 +222,9 @@ class GeoImporter(tk.Frame):
         db = self.pg_database.get()
         store = self.storename.get()
         workspace = self.workspace.get()
-        engine = sa.create_engine('postgresql://' + user + ':' + passw + '@' + host + ":" + port + '/' + db)
+        # engine = sa.create_engine('postgresql://' + user + ':' + passw + '@' + host + ":" + port + '/' + db)
+        engine = pw.PostgresqlDatabase(db, user=user, host=host, password=passw, port=port)
+        
 
         # Could maybe have another function for the geoserver functions
         if self.geo.get_version():
@@ -237,13 +240,21 @@ class GeoImporter(tk.Frame):
             print("Feature store created!")
         else:
             print("Feature store exists!")
-        try:
-            engine.connect()
+
+        if (engine.connect()):
             print('Database connected!')
             self.dbconnected.set('Database connected!')
-        except sqlalchemy.exc.OperationalError:
-            print('Failed to connect to Database')
+        else:
+            print('Failed to connect to database!')
             self.dbconnected.set('Failed to connect to database!')
+
+        # try:
+        #     engine.connect()
+        #     print('Database connected!')
+        #     self.dbconnected.set('Database connected!')
+        # except pw.PeeweeException:
+        #     print('Failed to connect to Database')
+        #     self.dbconnected.set('Failed to connect to database!')
         return engine
 
     def get_files(self, type: str, listbox: tk.Listbox):

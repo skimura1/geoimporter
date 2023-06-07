@@ -1,7 +1,8 @@
 import os
 
-import sqlalchemy as sa
+
 import geopandas as gpd
+import psycopg2
 
 def upload_raster(geoserver, filepath, workspace):
     filename = os.path.basename(filepath)
@@ -16,16 +17,16 @@ def upload_raster(geoserver, filepath, workspace):
 
 def upload_postgis(filepath, engine):
     filename = os.path.basename(filepath)
-    try:
-        shp_file = gpd.read_file(filepath)
-        insp = sa.inspect(engine)
-        if not insp.has_table(filename[:-4], schema="public"):
-            shp_file.to_postgis(filename[:-4], engine, index=True, index_lable='index')
-        else:
-            print(filename[:-4] + " already exists in PostgreSQL database!")
-    except Exception as e:
-        print("Error uploading shapefile to PostgreSQL database with " + filename + " with " + e)
-        return False
+    # try:
+    shp_file = gpd.read_file(filepath)
+    # insp = sa.inspect(engine)
+    if not engine.table_exists(filename[:-4], schema="public"):
+        shp_file.to_postgis(filename[:-4], engine, index=True, index_lable='index')
+    else:
+        print(filename[:-4] + " already exists in PostgreSQL database!")
+    # except Exception as e:
+    #     print("Error uploading shapefile to PostgreSQL database with " + filename)
+    #     return False
     print(filename + " uploaded to PostgreSQL database!")
     return True
 
