@@ -18,11 +18,6 @@ Barebones script that is the precursor to the GUI. Feel free to use the barebone
 [os](https://docs.python.org/3/library/os.html)
 [re](https://docs.python.org/3/library/re.html)
 
-## Notes
-Unfortunately, due to limited will power and effort in implementing features into tkinter, there is no way to import a single layer.
-There will be no further development for this current iteration of the tool because there are alternative user interface frameworks that
-are more powerful and could be a good reimplemntation for this tool.
-
 ## Installation
 Execute ```python -m pip install -r requirements.txt``` to install requirements
 Run the Python script, ```python geoimporter.py```
