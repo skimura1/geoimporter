@@ -9,6 +9,18 @@ import sqlalchemy as sa
 import sqlalchemy.exc
 from geo.Geoserver import Geoserver
 
+class LabeledEntryandButtons(tk.Frame):
+    def __init__(self, master=None, label_text="", default_text="", **kwargs):
+        super().__init__(master, **kwargs)
+
+        default = tk.StringVar()
+        default.set(default_text)
+        self.label = tk.Label(self, text=label_text).grid(column=1)
+        self.entry = tk.Entry(self, width=20, textvariable=default).grid(column=2)
+
+        def get_text(self):
+            return self.entry.get()
+
 class GeoImporter(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
