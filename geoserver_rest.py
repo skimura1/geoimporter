@@ -24,7 +24,8 @@ def upload_postgis(filepath, engine):
             shp_file.to_postgis(filename[:-4], engine, index=True, index_lable='index')
             print(filename + " uploaded to PostgreSQL database!")
         else:
-            print(filename[:-4] + " already exists in PostgreSQL database!")
+            print("Table already exists")
+            return False
     except Exception:
         logging.exception("Error uploading " + filename + " shapefile to PostgreSQL database")
         return False

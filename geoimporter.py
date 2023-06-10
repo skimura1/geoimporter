@@ -67,7 +67,7 @@ class GeoImporter(tk.Frame):
 
         # display if the layers have been imported
         self.tiff_comp = tk.StringVar()
-        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=6, row=5)
+        ttk.Label(mainframe, textvariable=self.tiff_comp).grid(column=5, row=5, sticky="W")
 
         # POSTGIS DB user field
         self.pg_user = tk.StringVar()
