@@ -13,8 +13,9 @@ Barebones script that is the precursor to the GUI. Feel free to use the barebone
 ## Packages Used
 [tkinter](https://docs.python.org/3/library/tkinter.html)
 [geopandas](https://geopandas.org/en/stable/index.html)
+[psycopg2](https://pypi.org/project/psycopg2/)
 [sqlalchemy](https://www.sqlalchemy.org)
-[geoserver](https://geoserver.org)
+[geoserver-rest](https://geoserver-rest.readthedocs.io/en/latest/)
 [os](https://docs.python.org/3/library/os.html)
 [re](https://docs.python.org/3/library/re.html)
 
