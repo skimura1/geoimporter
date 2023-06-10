@@ -1,13 +1,12 @@
 import os
+import logging
 
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import List
-
 from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 import sqlalchemy as sa
 import sqlalchemy.exc
-import peewee as pw
 from geo.Geoserver import Geoserver
 
 class GeoImporter(tk.Frame):
@@ -24,22 +23,19 @@ class GeoImporter(tk.Frame):
         # geoserver hostname field
         self.geo_host = tk.StringVar()
         self.geo_host.set("https://crcgeo.soest.hawaii.edu/geoserver")
-        host_entry = ttk.Entry(mainframe, width=20, textvariable=self.geo_host)
+        ttk.Entry(mainframe, width=20, textvariable=self.geo_host).grid(column=2, row=1, sticky="W")
         ttk.Label(mainframe, text="Geoserver Url:").grid(column=1, row=1, sticky="E")
-        host_entry.grid(column=2, row=1, sticky="W")
 
         # geoserver username field
         self.geo_user = tk.StringVar()
         self.geo_user.set("admin")
-        user_entry = ttk.Entry(mainframe, width=20, textvariable=self.geo_user)
+        ttk.Entry(mainframe, width=20, textvariable=self.geo_user).grid(column=2, row=2, sticky="W")
         ttk.Label(mainframe, text="Username:").grid(column=1, row=2, sticky="E")
-        user_entry.grid(column=2, row=2, sticky="W")
 
         # geoserver password field
         self.geo_pass = tk.StringVar()
-        pass_entry = ttk.Entry(mainframe, width=20, textvariable=self.geo_pass, show="*")
+        ttk.Entry(mainframe, width=20, textvariable=self.geo_pass, show="*").grid(column=2, row=3, sticky="W")
         ttk.Label(mainframe, text="Password:").grid(column=1, row=3, sticky="E")
-        pass_entry.grid(column=2, row=3, sticky="W")
 
         # geoserver connection button
         self.connected = tk.StringVar()
@@ -51,9 +47,8 @@ class GeoImporter(tk.Frame):
         self.workspace = tk.StringVar()
         # default value is "CRC"
         self.workspace.set("CRC")
-        workspace_entry = ttk.Entry(mainframe, width=20, textvariable=self.workspace)
         ttk.Label(mainframe, text="Workspace:").grid(column=1, row=4, sticky="E")
-        workspace_entry.grid(column=2, row=4, sticky="W")
+        ttk.Entry(mainframe, width=20, textvariable=self.workspace).grid(column=2, row=4, sticky="W")
 
         # button to create workspace on the geoserver
         ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=3, row=4, sticky="E")
@@ -63,8 +58,10 @@ class GeoImporter(tk.Frame):
         tiff_listbox = tk.Listbox(mainframe, width=20)
         ttk.Label(mainframe, text="Raster/TIFF Path:").grid(column=1, row=5, sticky="E")
         tiff_listbox.grid(column=2, row=5, sticky="W")
+
         # file explorer button
         ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff", tiff_listbox)).grid(column=3, row=5, sticky="E")
+
         # import into geoserver button
         ttk.Button(mainframe, text="Import", command= lambda: self.tiffimport(self.tiff_files)).grid(column=4, row=5, sticky="W")
 
@@ -75,43 +72,37 @@ class GeoImporter(tk.Frame):
         # POSTGIS DB user field
         self.pg_user = tk.StringVar()
         self.pg_user.set("docker")
-        pg_usr_entry = ttk.Entry(mainframe, width=20, textvariable=self.pg_user)
+        ttk.Entry(mainframe, width=20, textvariable=self.pg_user).grid(column=2, row=6, sticky="W")
         ttk.Label(mainframe, text="PG User:").grid(column=1, row=6, sticky="E")
-        pg_usr_entry.grid(column=2, row=6, sticky="W")
 
         # POSTGIS DB password field
         self.pg_pass = tk.StringVar()
-        pg_pass_entry = ttk.Entry(mainframe, width=20, textvariable=self.pg_pass, show="*")
+        ttk.Entry(mainframe, width=20, textvariable=self.pg_pass, show="*").grid(column=2, row=7, sticky="W")
         ttk.Label(mainframe, text="PG Pass:").grid(column=1, row=7, sticky="E")
-        pg_pass_entry.grid(column=2, row=7, sticky="W")
 
         # POSTGIS hostname field
         self.pg_host = tk.StringVar()
         self.pg_host.set("128.171.159.31")
-        pg_host_entry = ttk.Entry(mainframe, width=20, textvariable=self.pg_host)
+        ttk.Entry(mainframe, width=20, textvariable=self.pg_host).grid(column=2, row=8, sticky="W")
         ttk.Label(mainframe, text="PG Host:").grid(column=1, row=8, sticky="E")
-        pg_host_entry.grid(column=2, row=8, sticky="W")
 
         # POSTGIS port field
         self.pg_port = tk.StringVar()
         self.pg_port.set("32767")
-        pg_port = ttk.Entry(mainframe, width=20, textvariable=self.pg_port)
-        ttk.Label(mainframe, text="Port:").grid(column=3, row=8, sticky="E")
-        pg_port.grid(column=4, row=8, sticky="W")
+        ttk.Label(mainframe, text="Port:", width=10).grid(column=3, row=8, sticky="E")
+        ttk.Entry(mainframe, width=5, textvariable=self.pg_port).grid(column=4, row=8, sticky="W")
 
         # POSTGIS database name field
         self.pg_database = tk.StringVar()
         self.pg_database.set("PUC_SLR_Viewer")
-        pg_db_entry = ttk.Entry(mainframe, width=20, textvariable=self.pg_database)
         ttk.Label(mainframe, text="PG DB:").grid(column=1, row=9, sticky="E")
-        pg_db_entry.grid(column=2, row=9, sticky="W")
+        ttk.Entry(mainframe, width=20, textvariable=self.pg_database).grid(column=2, row=9, sticky="W")
 
         # geoserver storename field
         self.storename = tk.StringVar()
         self.storename.set("SLR Viewer")
-        storename_entry = ttk.Entry(mainframe, width=20, textvariable=self.storename)
         ttk.Label(mainframe, text="Storename:").grid(column=1, row=10, sticky="E")
-        storename_entry.grid(column=2, row=10, sticky="W")
+        ttk.Entry(mainframe, width=20, textvariable=self.storename).grid(column=2, row=10, sticky="W")
 
         self.engine = None
         # Button to check connection to database
@@ -119,10 +110,6 @@ class GeoImporter(tk.Frame):
         # Display if the connection is good
         self.dbconnected = tk.StringVar()
         ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=4, row=10)
-
-        # Possible output field...
-        # output = Text(mainframe, width=40, height=10, state='disabled')
-        # output.grid(column=2, row=5)
 
         # Shapefile directory path field
         self.shp_files: List[str] = [] 
@@ -140,6 +127,9 @@ class GeoImporter(tk.Frame):
         # add x and y padding to every component
         for child in mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
+    
+    def set_engine(self, engine):
+        self.engine = engine
 
 
     def geoconnect(self):
@@ -150,12 +140,13 @@ class GeoImporter(tk.Frame):
         host = self.geo_host.get()
         username = self.geo_user.get()
         password = self.geo_pass.get()
-        self.geo = Geoserver(host, username=username, password=password)
         try:
+            self.geo = Geoserver(host, username=username, password=password)
             self.geo.get_version()['about']
             self.connected.set('Connected!')
-        except TypeError:
-            self.connected.set('Error, Connection failed!')
+        except Exception:
+            logging.exception("Error Connecting to Geoserver!")
+            self.connected.set('Error Connection failed!')
             pass
 
     def create_workspace(self):
@@ -185,6 +176,24 @@ class GeoImporter(tk.Frame):
                     print('Successfully uploaded ' + os.path.basename(file))
         self.tiff_comp.set('Successfully uploaded ' + str(count) + ' Raster Files!')
 
+    def upload_sequence(self, file, count, error):
+        """
+        Abstract away the nested upload sequence for easier readability.  
+        :return:
+        """
+        if not os.path.isfile(file):
+            self.shp_comp.set('Error! Could not find shape file.')
+        else:
+            # Uploading to POSTGIS succeeds, we can upload to Geoserver
+            if upload_postgis(file, self.engine):
+                if upload_shapefile(geoserver=self.geo, filepath=file, workspace=self.workspace.get(), storename=self.storename.get()):
+                    count += 1
+                    print('Successfully uploaded ' + os.path.basename(file))
+            else:
+                error.append(os.path.basename(file))
+                print(error)
+
+
     def shpimport(self, shp_files: List[str]):
         """
         Create workspace if doesn't exists, and import shape files onto PG DB and publish on geoserver
@@ -193,16 +202,8 @@ class GeoImporter(tk.Frame):
         count = 0
         error = []
         for file in shp_files:
-            if not os.path.isfile(file):
-                self.shp_comp.set('Error! Could not find shape file.')
-                return False
-            else:
-                if upload_postgis(file, self.engine) and upload_shapefile(geoserver=self.geo, filepath=file, workspace=self.workspace.get(), storename=self.storename.get()):
-                    count += 1
-                    print('Successfully uploaded ' + os.path.basename(file))
-                else:
-                    error.append(os.path.basename(file))
-                    print(error)
+            # Upload to file to Geoserver
+            self.upload_sequence(file, count, error)
         if count == len(shp_files):
             self.shp_comp.set('Successfully uploaded all Shapefiles!')
         else:
@@ -222,9 +223,7 @@ class GeoImporter(tk.Frame):
         db = self.pg_database.get()
         store = self.storename.get()
         workspace = self.workspace.get()
-        # engine = sa.create_engine('postgresql://' + user + ':' + passw + '@' + host + ":" + port + '/' + db)
-        engine = pw.PostgresqlDatabase(db, user=user, host=host, password=passw, port=port)
-        
+        engine = sa.create_engine('postgresql://' + user + ':' + passw + '@' + host + ":" + port + '/' + db)
 
         # Could maybe have another function for the geoserver functions
         if self.geo.get_version():
@@ -241,20 +240,13 @@ class GeoImporter(tk.Frame):
         else:
             print("Feature store exists!")
 
-        if (engine.connect()):
-            print('Database connected!')
+        try: 
+            engine.connect()
+            print('Database Connected!')
             self.dbconnected.set('Database connected!')
-        else:
-            print('Failed to connect to database!')
+        except sqlalchemy.exc.OperationalError:
+            logging.exception("Error connecting to database")
             self.dbconnected.set('Failed to connect to database!')
-
-        # try:
-        #     engine.connect()
-        #     print('Database connected!')
-        #     self.dbconnected.set('Database connected!')
-        # except pw.PeeweeException:
-        #     print('Failed to connect to Database')
-        #     self.dbconnected.set('Failed to connect to database!')
         return engine
 
     def get_files(self, type: str, listbox: tk.Listbox):
@@ -270,7 +262,6 @@ class GeoImporter(tk.Frame):
             self.shp_files += files
             for file in self.shp_files:
                 filename = os.path.basename(file)
-                print(filename)
                 listbox.insert(tk.END, filename)
         else:
             self.tiff_files = []
@@ -280,13 +271,9 @@ class GeoImporter(tk.Frame):
                 filename = os.path.basename(file)
                 listbox.insert(tk.END, filename)
 
-    def set_engine(self, engine): 
-        self.engine = engine
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     GeoImporter(root)
     root.mainloop()
-
-

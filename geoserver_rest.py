@@ -1,8 +1,8 @@
 import os
 
-
 import geopandas as gpd
-import psycopg2
+import sqlalchemy as sa
+import logging
 
 def upload_raster(geoserver, filepath, workspace):
     filename = os.path.basename(filepath)
@@ -10,24 +10,24 @@ def upload_raster(geoserver, filepath, workspace):
     print("Importing " + filename)
     try:
         geoserver.create_coveragestore(layer_name=filename[:-4], path=filepath, workspace=workspace)
-    except Exception as e:
-        print('Error with ' + filename + ' with ' + e)
+    except Exception:
+        logging.exception("Error uploading " +  filename + " to Geoserver")
         return False
     return True
 
 def upload_postgis(filepath, engine):
     filename = os.path.basename(filepath)
-    # try:
-    shp_file = gpd.read_file(filepath)
-    # insp = sa.inspect(engine)
-    if not engine.table_exists(filename[:-4], schema="public"):
-        shp_file.to_postgis(filename[:-4], engine, index=True, index_lable='index')
-    else:
-        print(filename[:-4] + " already exists in PostgreSQL database!")
-    # except Exception as e:
-    #     print("Error uploading shapefile to PostgreSQL database with " + filename)
-    #     return False
-    print(filename + " uploaded to PostgreSQL database!")
+    try:
+        shp_file = gpd.read_file(filepath)
+        insp = sa.inspect(engine)
+        if not insp.has_table(filename[:-4], schema="public"):
+            shp_file.to_postgis(filename[:-4], engine, index=True, index_lable='index')
+            print(filename + " uploaded to PostgreSQL database!")
+        else:
+            print(filename[:-4] + " already exists in PostgreSQL database!")
+    except Exception:
+        logging.exception("Error uploading " + filename + " shapefile to PostgreSQL database")
+        return False
     return True
 
 def upload_shapefile(geoserver, filepath, workspace, storename):
@@ -35,9 +35,9 @@ def upload_shapefile(geoserver, filepath, workspace, storename):
     print("Uploading " + filename)
     try:
         geoserver.publish_featurestore(workspace=workspace, store_name=storename, pg_table=filename[:-4])
+        print(filename + " upload completed to Geoserver!")
     except Exception as e:
-        print("Something went wrong with uploading Geoserver")
+        logging.exception("Error uploading " + filename + " to Geoserver")
         return False
-    print(filename + " upload completed to Geoserver!")
     return True
 
