@@ -10,13 +10,21 @@ import sqlalchemy.exc
 from geo.Geoserver import Geoserver
 
 class LabeledEntryandButtons(tk.Frame):
-    def __init__(self, master=None, label_text="", default_text="", **kwargs):
+    def __init__(self, master=None, label_text="", default_text="", show="", **kwargs):
         super().__init__(master, **kwargs)
 
         default = tk.StringVar()
         default.set(default_text)
-        self.label = tk.Label(self, text=label_text).grid(column=1)
-        self.entry = tk.Entry(self, width=20, textvariable=default).grid(column=2)
+        if show == "*":
+            self.entry = tk.Entry(self, width=20, textvariable=default, show="*")
+            self.entry.pack(side=tk.RIGHT)
+        else:
+            self.entry = tk.Entry(self, width=20, textvariable=default)
+            self.entry.pack(side=tk.RIGHT)
+
+
+        self.label = tk.Label(self, width=10, text=label_text)
+        self.label.pack(side=tk.LEFT)
 
         def get_text(self):
             return self.entry.get()
@@ -32,50 +40,47 @@ class GeoImporter(tk.Frame):
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
+
         # geoserver hostname field
         self.geo_host = tk.StringVar()
         self.geo_host.set("https://crcgeo.soest.hawaii.edu/geoserver")
-        ttk.Entry(mainframe, width=20, textvariable=self.geo_host).grid(column=2, row=1, sticky="W")
-        ttk.Label(mainframe, text="Geoserver Url:").grid(column=1, row=1, sticky="E")
+        LabeledEntryandButtons(mainframe, label_text="URL:", default_text=self.geo_host.get()).grid(column=1, row=1, sticky="W")
 
-        # geoserver username field
+        # # geoserver username field
         self.geo_user = tk.StringVar()
         self.geo_user.set("admin")
-        ttk.Entry(mainframe, width=20, textvariable=self.geo_user).grid(column=2, row=2, sticky="W")
-        ttk.Label(mainframe, text="Username:").grid(column=1, row=2, sticky="E")
+        LabeledEntryandButtons(mainframe, label_text="Username:", default_text=self.geo_user.get()).grid(column=1, row=2, sticky="W")
 
         # geoserver password field
         self.geo_pass = tk.StringVar()
-        ttk.Entry(mainframe, width=20, textvariable=self.geo_pass, show="*").grid(column=2, row=3, sticky="W")
-        ttk.Label(mainframe, text="Password:").grid(column=1, row=3, sticky="E")
+        LabeledEntryandButtons(mainframe, label_text="Password:", default_text=self.geo_pass.get(), show="*").grid(column=1, row=3, sticky="W")
 
         # geoserver connection button
         self.connected = tk.StringVar()
-        ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=3, row=3, sticky="E")
+        ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=2, row=3, sticky="W")
         # display if the geoserver was successfully connected to
-        ttk.Label(mainframe, textvariable=self.connected).grid(column=4, row=3)
+        ttk.Label(mainframe, textvariable=self.connected).grid(column=3, row=3)
 
         # geoserver workspace field
         self.workspace = tk.StringVar()
         # default value is "CRC"
         self.workspace.set("CRC")
-        ttk.Label(mainframe, text="Workspace:").grid(column=1, row=4, sticky="E")
-        ttk.Entry(mainframe, width=20, textvariable=self.workspace).grid(column=2, row=4, sticky="W")
+        LabeledEntryandButtons(mainframe, label_text="Workspace:", default_text=self.workspace.get()).grid(column=1, row=4, sticky="W")
 
         # button to create workspace on the geoserver
-        ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=3, row=4, sticky="E")
+        ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=2, row=4, sticky="W")
 
+        # TODO: Combined these components into one
         # tiff/raster path field
         self.tiff_files: List[str] = [] 
         tiff_listbox = tk.Listbox(mainframe, width=20)
-        ttk.Label(mainframe, text="Raster/TIFF Path:").grid(column=1, row=5, sticky="E")
-        tiff_listbox.grid(column=2, row=5, sticky="W")
+        tiff_listbox.grid(column=1, row=5, sticky="E")
 
         # file explorer button
-        ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff", tiff_listbox)).grid(column=3, row=5, sticky="E")
+        ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff", tiff_listbox)).grid(column=2, row=5, sticky="W")
 
         # import into geoserver button
-        ttk.Button(mainframe, text="Import", command= lambda: self.tiffimport(self.tiff_files)).grid(column=4, row=5, sticky="W")
+        ttk.Button(mainframe, text="Import", command= lambda: self.tiffimport(self.tiff_files)).grid(column=3, row=5, sticky="W")
 
         # display if the layers have been imported
         self.tiff_comp = tk.StringVar()
@@ -84,53 +89,46 @@ class GeoImporter(tk.Frame):
         # POSTGIS DB user field
         self.pg_user = tk.StringVar()
         self.pg_user.set("docker")
-        ttk.Entry(mainframe, width=20, textvariable=self.pg_user).grid(column=2, row=6, sticky="W")
-        ttk.Label(mainframe, text="PG User:").grid(column=1, row=6, sticky="E")
+        LabeledEntryandButtons(mainframe, "PG User:", self.pg_user.get()).grid(column=1, row=6, sticky="W")
 
         # POSTGIS DB password field
         self.pg_pass = tk.StringVar()
-        ttk.Entry(mainframe, width=20, textvariable=self.pg_pass, show="*").grid(column=2, row=7, sticky="W")
-        ttk.Label(mainframe, text="PG Pass:").grid(column=1, row=7, sticky="E")
+        LabeledEntryandButtons(mainframe, "PG Pass:", self.pg_pass.get()).grid(column=1, row=7, sticky="W")
 
         # POSTGIS hostname field
         self.pg_host = tk.StringVar()
         self.pg_host.set("128.171.159.31")
-        ttk.Entry(mainframe, width=20, textvariable=self.pg_host).grid(column=2, row=8, sticky="W")
-        ttk.Label(mainframe, text="PG Host:").grid(column=1, row=8, sticky="E")
+        LabeledEntryandButtons(mainframe, "PG Host:", self.pg_host.get()).grid(column=1, row=8, sticky="W")
 
         # POSTGIS port field
         self.pg_port = tk.StringVar()
         self.pg_port.set("32767")
-        ttk.Label(mainframe, text="Port:", width=10).grid(column=3, row=8, sticky="E")
-        ttk.Entry(mainframe, width=5, textvariable=self.pg_port).grid(column=4, row=8, sticky="W")
+        LabeledEntryandButtons(mainframe, "Port:", self.pg_port.get()).grid(column=1, row=9, sticky="W")
 
         # POSTGIS database name field
         self.pg_database = tk.StringVar()
         self.pg_database.set("PUC_SLR_Viewer")
-        ttk.Label(mainframe, text="PG DB:").grid(column=1, row=9, sticky="E")
-        ttk.Entry(mainframe, width=20, textvariable=self.pg_database).grid(column=2, row=9, sticky="W")
+        LabeledEntryandButtons(mainframe, "PG DB:", self.pg_database.get()).grid(column=1, row=10, sticky="W")
 
         # geoserver storename field
         self.storename = tk.StringVar()
         self.storename.set("SLR Viewer")
-        ttk.Label(mainframe, text="Storename:").grid(column=1, row=10, sticky="E")
-        ttk.Entry(mainframe, width=20, textvariable=self.storename).grid(column=2, row=10, sticky="W")
+        LabeledEntryandButtons(mainframe, "Storename:", self.storename.get()).grid(column=1, row=11, sticky="W")
 
         self.engine = None
         # Button to check connection to database
-        ttk.Button(mainframe, text="DB Connect", command=lambda: self.set_engine(self.pg_connect())).grid(column=3, row=10, sticky="W")
+        ttk.Button(mainframe, text="DB Connect", command=lambda: self.set_engine(self.pg_connect())).grid(column=2, row=10, sticky="W")
         # Display if the connection is good
         self.dbconnected = tk.StringVar()
-        ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=4, row=10)
+        ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=3, row=10)
 
         # Shapefile directory path field
         self.shp_files: List[str] = [] 
         shp_listbox = tk.Listbox(mainframe, width=20)
-        ttk.Label(mainframe, text="Shapefile Path:").grid(column=1, row=11, sticky="E")
-        shp_listbox.grid(column=2, row=11, sticky="W")
+        shp_listbox.grid(column=1, row=12, sticky="E")
         # button to open fileexporer
-        ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape", shp_listbox)).grid(column=3, row=11, sticky="W")
-        ttk.Button(mainframe, text="Import", command= lambda: self.shpimport(self.shp_files)).grid(column=4, row=11, sticky="W")
+        ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape", shp_listbox)).grid(column=2, row=12, sticky="W")
+        ttk.Button(mainframe, text="Import", command= lambda: self.shpimport(self.shp_files)).grid(column=2, row=12, sticky="W")
 
         # display if the shapefiles succesfully imported
         self.shp_comp = tk.StringVar()
