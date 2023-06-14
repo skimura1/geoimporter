@@ -1,4 +1,4 @@
-# Geoimporter v1
+# Geoimporter
 
 ## About
 Tool to import raster/shapefile layers into the Geoserver using Python package for Geoserver REST API. The interface is built with 
@@ -6,9 +6,6 @@ tkinter GUI package. The tool allows users to set a directory for the layers to 
 on to the Geoserver application. The tool will go into every subdirectory and import only files with .shp or .tif extension. Shapefiles
 are imported into a PostgreSQL/PostGIS DB, and then they are published on Geoserver. Therefore, the tool will need to be able to connect
 to a PostgreSQL/PostGIS DB. The tool has been created to have a graphical interface for the importing scripts. 
-
-## Geoserver-rest.py
-Barebones script that is the precursor to the GUI. Feel free to use the barebones script.
 
 ## Packages Used
 [tkinter](https://docs.python.org/3/library/tkinter.html)
