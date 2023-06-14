@@ -9,25 +9,64 @@ import sqlalchemy as sa
 import sqlalchemy.exc
 from geo.Geoserver import Geoserver
 
-class LabeledEntryandButtons(tk.Frame):
+class LabeledEntry(tk.Frame):
     def __init__(self, master=None, label_text="", default_text="", show="", **kwargs):
         super().__init__(master, **kwargs)
-
-        default = tk.StringVar()
-        default.set(default_text)
-        if show == "*":
-            self.entry = tk.Entry(self, width=20, textvariable=default, show="*")
-            self.entry.pack(side=tk.RIGHT)
-        else:
-            self.entry = tk.Entry(self, width=20, textvariable=default)
-            self.entry.pack(side=tk.RIGHT)
-
-
         self.label = tk.Label(self, width=10, text=label_text)
         self.label.pack(side=tk.LEFT)
 
+        default = tk.StringVar()
+        default.set(default_text)
+
+        if show == "*":
+            self.entry = tk.Entry(self, width=20, textvariable=default, show="*")
+            self.entry.pack(side=tk.LEFT)
+        else:
+            self.entry = tk.Entry(self, width=20, textvariable=default)
+            self.entry.pack(side=tk.LEFT)
+
+
         def get_text(self):
             return self.entry.get()
+
+class ListBoxandButtons(tk.Frame):
+    def __init__(self, master=None, label_text="", type="", files=[], import_func=None,**kwargs):
+        super().__init__(master, **kwargs)
+
+        # Shapefile directory path field
+        self.listbox = tk.Listbox(self, width=20)
+        self.label = tk.Label(self, width=10, text=label_text)
+        
+        # button to open fileexporer
+        self.dir_button = ttk.Button(self, text="Dir", command=lambda: self.get_files(type, self.listbox))
+        self.import_button = ttk.Button(self, text="Import", command= lambda: import_func(self.files))
+
+        self.label.pack(side=tk.LEFT)
+        self.listbox.pack(side=tk.LEFT)
+        self.dir_button.pack(side=tk.LEFT)
+        self.import_button.pack(side=tk.LEFT)
+
+    def get_files(self, type: str, listbox: tk.Listbox):
+        """
+        Set the path for shapefile or tiff
+        :param shp: binary option to set to the shape file or tiff
+        :return:
+        """
+        listbox.delete(0, tk.END)
+        if type == "shape":            
+            self.shp_files = []
+            files = filedialog.askopenfilenames(filetypes=[('Shapefiles', '*.shp')])
+            self.shp_files += files
+            for file in self.shp_files:
+                filename = os.path.basename(file)
+                listbox.insert(tk.END, filename)
+        else:
+            self.tiff_files = []
+            files = filedialog.askopenfilenames(filetypes=[('Raster', '*.tif'), ('Raster', '*.tiff')])
+            self.tiff_files += files
+            for file in self.tiff_files:
+                filename = os.path.basename(file)
+                listbox.insert(tk.END, filename)
 
 class GeoImporter(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -40,24 +79,23 @@ class GeoImporter(tk.Frame):
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
-
         # geoserver hostname field
         self.geo_host = tk.StringVar()
         self.geo_host.set("https://crcgeo.soest.hawaii.edu/geoserver")
-        LabeledEntryandButtons(mainframe, label_text="URL:", default_text=self.geo_host.get()).grid(column=1, row=1, sticky="W")
+        LabeledEntry(mainframe, label_text="URL:", default_text=self.geo_host.get()).grid(column=1, row=1, sticky="W")
 
         # # geoserver username field
         self.geo_user = tk.StringVar()
         self.geo_user.set("admin")
-        LabeledEntryandButtons(mainframe, label_text="Username:", default_text=self.geo_user.get()).grid(column=1, row=2, sticky="W")
+        LabeledEntry(mainframe, label_text="Username:", default_text=self.geo_user.get()).grid(column=1, row=2, sticky="W")
 
         # geoserver password field
         self.geo_pass = tk.StringVar()
-        LabeledEntryandButtons(mainframe, label_text="Password:", default_text=self.geo_pass.get(), show="*").grid(column=1, row=3, sticky="W")
+        LabeledEntry(mainframe, label_text="Password:", default_text=self.geo_pass.get(), show="*").grid(column=1, row=3, sticky="W")
 
         # geoserver connection button
         self.connected = tk.StringVar()
-        ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=2, row=3, sticky="W")
+        ttk.Button(mainframe, text="Connect", command=self.geoconnect).grid(column=1, row=3, sticky="E")
         # display if the geoserver was successfully connected to
         ttk.Label(mainframe, textvariable=self.connected).grid(column=3, row=3)
 
@@ -65,22 +103,15 @@ class GeoImporter(tk.Frame):
         self.workspace = tk.StringVar()
         # default value is "CRC"
         self.workspace.set("CRC")
-        LabeledEntryandButtons(mainframe, label_text="Workspace:", default_text=self.workspace.get()).grid(column=1, row=4, sticky="W")
+        LabeledEntry(mainframe, label_text="Workspace:", default_text=self.workspace.get()).grid(column=1, row=4, sticky="W")
 
         # button to create workspace on the geoserver
-        ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=2, row=4, sticky="W")
+        ttk.Button(mainframe, text="Create", command=self.create_workspace).grid(column=1, row=4, sticky="E")
 
         # TODO: Combined these components into one
         # tiff/raster path field
         self.tiff_files: List[str] = [] 
-        tiff_listbox = tk.Listbox(mainframe, width=20)
-        tiff_listbox.grid(column=1, row=5, sticky="E")
-
-        # file explorer button
-        ttk.Button(mainframe, text="Dir", command= lambda: self.get_files("tiff", tiff_listbox)).grid(column=2, row=5, sticky="W")
-
-        # import into geoserver button
-        ttk.Button(mainframe, text="Import", command= lambda: self.tiffimport(self.tiff_files)).grid(column=3, row=5, sticky="W")
+        ListBoxandButtons(mainframe, label_text="Raster Path:", type="raster", files=self.tiff_files, import_func=self.tiffimport).grid(column=1, row=5, sticky="W")
 
         # display if the layers have been imported
         self.tiff_comp = tk.StringVar()
@@ -89,46 +120,42 @@ class GeoImporter(tk.Frame):
         # POSTGIS DB user field
         self.pg_user = tk.StringVar()
         self.pg_user.set("docker")
-        LabeledEntryandButtons(mainframe, "PG User:", self.pg_user.get()).grid(column=1, row=6, sticky="W")
+        LabeledEntry(mainframe, "PG User:", self.pg_user.get()).grid(column=1, row=6, sticky="W")
 
         # POSTGIS DB password field
         self.pg_pass = tk.StringVar()
-        LabeledEntryandButtons(mainframe, "PG Pass:", self.pg_pass.get()).grid(column=1, row=7, sticky="W")
+        LabeledEntry(mainframe, "PG Pass:", self.pg_pass.get()).grid(column=1, row=7, sticky="W")
 
         # POSTGIS hostname field
         self.pg_host = tk.StringVar()
         self.pg_host.set("128.171.159.31")
-        LabeledEntryandButtons(mainframe, "PG Host:", self.pg_host.get()).grid(column=1, row=8, sticky="W")
+        LabeledEntry(mainframe, "PG Host:", self.pg_host.get()).grid(column=1, row=8, sticky="W")
 
         # POSTGIS port field
         self.pg_port = tk.StringVar()
         self.pg_port.set("32767")
-        LabeledEntryandButtons(mainframe, "Port:", self.pg_port.get()).grid(column=1, row=9, sticky="W")
+        LabeledEntry(mainframe, "Port:", self.pg_port.get()).grid(column=1, row=9, sticky="W")
 
         # POSTGIS database name field
         self.pg_database = tk.StringVar()
         self.pg_database.set("PUC_SLR_Viewer")
-        LabeledEntryandButtons(mainframe, "PG DB:", self.pg_database.get()).grid(column=1, row=10, sticky="W")
+        LabeledEntry(mainframe, "PG DB:", self.pg_database.get()).grid(column=1, row=10, sticky="W")
 
         # geoserver storename field
         self.storename = tk.StringVar()
         self.storename.set("SLR Viewer")
-        LabeledEntryandButtons(mainframe, "Storename:", self.storename.get()).grid(column=1, row=11, sticky="W")
+        LabeledEntry(mainframe, "Storename:", self.storename.get()).grid(column=1, row=11, sticky="W")
 
         self.engine = None
         # Button to check connection to database
-        ttk.Button(mainframe, text="DB Connect", command=lambda: self.set_engine(self.pg_connect())).grid(column=2, row=10, sticky="W")
+        ttk.Button(mainframe, text="DB Connect", command=lambda: self.set_engine(self.pg_connect())).grid(column=1, row=10, sticky="E")
         # Display if the connection is good
         self.dbconnected = tk.StringVar()
         ttk.Label(mainframe, textvariable=self.dbconnected).grid(column=3, row=10)
 
         # Shapefile directory path field
         self.shp_files: List[str] = [] 
-        shp_listbox = tk.Listbox(mainframe, width=20)
-        shp_listbox.grid(column=1, row=12, sticky="E")
-        # button to open fileexporer
-        ttk.Button(mainframe, text="Dir", command=lambda: self.get_files("shape", shp_listbox)).grid(column=2, row=12, sticky="W")
-        ttk.Button(mainframe, text="Import", command= lambda: self.shpimport(self.shp_files)).grid(column=2, row=12, sticky="W")
+        ListBoxandButtons(mainframe, label_text="Shapefile Path:", type="shape", files=self.shp_files, import_func=self.shpimport).grid(column=1, row=11, sticky="W")
 
         # display if the shapefiles succesfully imported
         self.shp_comp = tk.StringVar()
@@ -140,7 +167,6 @@ class GeoImporter(tk.Frame):
     
     def set_engine(self, engine):
         self.engine = engine
-
 
     def geoconnect(self):
         """
@@ -259,27 +285,6 @@ class GeoImporter(tk.Frame):
             self.dbconnected.set('Failed to connect to database!')
         return engine
 
-    def get_files(self, type: str, listbox: tk.Listbox):
-        """
-        Set the path for shapefile or tiff
-        :param shp: binary option to set to the shape file or tiff
-        :return:
-        """
-        listbox.delete(0, tk.END)
-        if type == "shape":            
-            self.shp_files = []
-            files = filedialog.askopenfilenames(filetypes=[('Shapefiles', '*.shp')])
-            self.shp_files += files
-            for file in self.shp_files:
-                filename = os.path.basename(file)
-                listbox.insert(tk.END, filename)
-        else:
-            self.tiff_files = []
-            files = filedialog.askopenfilenames(filetypes=[('Raster', '*.tif'), ('Raster', '*.tiff')])
-            self.tiff_files += files
-            for file in self.tiff_files:
-                filename = os.path.basename(file)
-                listbox.insert(tk.END, filename)
 
 
 
