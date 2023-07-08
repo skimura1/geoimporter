@@ -1,18 +1,24 @@
 import os
+import re
 import logging
+import warnings
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import Listbox, StringVar, ttk
 from typing import List
 
-from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 import sqlalchemy as sa
+from sqlalchemy.engine.base import Engine
 import sqlalchemy.exc
+from sqlalchemy.orm import declarative_base
 from geo.Geoserver import Geoserver
+from dotenv import load_dotenv
+
+from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 from components.labeled_entry import LabeledEntry
 from components.listboxbutton_entry import ListBoxandButtons
 
-
+load_dotenv()
 __shapefile__ = "SHAPEFILE"
 __raster__ = "RASTER"
 
@@ -22,82 +28,171 @@ class GeoImporter(tk.Frame):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
 
+        tab_control = ttk.Notebook(root)
+
         # initiate the tkinter frame to hold widgets
-        mainframe = ttk.Frame(root, padding="3 3 12 12")
-        mainframe.grid(column=0, row=0)
+        import_frame = ttk.Frame(tab_control, padding="3 3 12 12")
+        delete_frame = ttk.Frame(tab_control, padding="3 3 12 12")
+        tab_control.add(import_frame, text="Import")
+        tab_control.add(delete_frame, text="Delete")
+        tab_control.grid(column=0, row=0)
+        root.title("Geoimporter")
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
         self.geo_host = tk.StringVar(value="https://crcgeo.soest.hawaii.edu/geoserver")
         self.geo_user = tk.StringVar(value="admin")
-        self.geo_pass = tk.StringVar()
+        self.geo_pass = tk.StringVar(value=os.getenv('GEOSERVER_PASS'))
         self.connected = tk.StringVar()
         self.workspace = tk.StringVar(value="CRC")
         self.tiff_files = []
         self.tiff_comp = tk.StringVar()
         self.pg_user = tk.StringVar(value="docker")
-        self.pg_pass = tk.StringVar()
+        self.pg_pass = tk.StringVar(value=os.getenv('DB_PASS'))
         self.pg_host = tk.StringVar(value="128.171.159.31")
         self.pg_port = tk.StringVar(value="32767")
         self.pg_database = tk.StringVar(value="PUC_SLR_Viewer")
         self.shp_files = []
         self.shp_comp = tk.StringVar()
         self.storename = tk.StringVar(value="SLR Viewer")
-        self.engine = None
+        self.engine: Engine = sa.create_engine("postgresql://test:testpassword@localhost:5432/data")
         self.dbconnected = tk.StringVar()
+        self.search_layername = tk.StringVar()
+        self.search_tablename = tk.StringVar()
+        self.layers = []
+        self.table_names = []
+        self.filtered_layers = self.layers
+        self.filtered_tables = self.table_names
 
         host_label = LabeledEntry(
-            mainframe, label_text="URL:", entry_text=self.geo_host
+            import_frame, label_text="URL:", entry_text=self.geo_host
         )
         username_label = LabeledEntry(
-            mainframe, label_text="Username:", entry_text=self.geo_user
+            import_frame, label_text="Username:", entry_text=self.geo_user
         )
         password_label = LabeledEntry(
-            mainframe,
+            import_frame,
             label_text="Password:",
             entry_text=self.geo_pass,
             show="*",
             button_label="Connect",
             button_func=self.geoconnect,
         )
-        geo_connect_label = tk.Label(mainframe, textvariable=self.connected)
+        geo_connect_label = tk.Label(import_frame, textvariable=self.connected)
         workspace_label = LabeledEntry(
-            mainframe, label_text="Workspace:", entry_text=self.workspace
+            import_frame, label_text="Workspace:", entry_text=self.workspace
         )
         rasterpath_label = ListBoxandButtons(
-            mainframe,
+            import_frame,
             label_text="Raster Path:",
             type=__raster__,
             import_files=self.tiff_files,
-            import_func=self.tiffimport,
+            import_func=self.tiff_import,
         )
         pguser_label = LabeledEntry(
-            mainframe, label_text="PG User:", entry_text=self.pg_user
+            import_frame, label_text="PG User:", entry_text=self.pg_user
         )
         pgpass_label = LabeledEntry(
-            mainframe, label_text="PG Pass:", entry_text=self.pg_pass, show="*"
+            import_frame, label_text="PG Pass:", entry_text=self.pg_pass, show="*"
         )
         pghost_label = LabeledEntry(
-            mainframe, label_text="PG Host:", entry_text=self.pg_host
+            import_frame, label_text="PG Host:", entry_text=self.pg_host
         )
-        pgport_label = LabeledEntry(mainframe, "Port:", entry_text=self.pg_port)
-        pgdb_label = LabeledEntry(mainframe, "PG DB:", entry_text=self.pg_database)
+        pgport_label = LabeledEntry(import_frame, "Port:", entry_text=self.pg_port)
+        pgdb_label = LabeledEntry(import_frame, "PG DB:", entry_text=self.pg_database)
         pgstore_label = LabeledEntry(
-            mainframe,
+            import_frame,
             label_text="Storename:",
             entry_text=self.storename,
             button_label="Connect",
-            button_func=lambda: self.pg_connect(),
+            button_func=self.pg_connect,
         )
         shape_listbox = ListBoxandButtons(
-            mainframe,
+            import_frame,
             label_text="Shapefile Path:",
             type=__shapefile__,
             import_files=self.shp_files,
             import_func=self.shpimport,
         )
-        dbconnected_label = tk.Label(mainframe, textvariable=self.dbconnected)
-        shp_comp_label = tk.Label(mainframe, textvariable=self.shp_comp)
+        dbconnected_label = tk.Label(import_frame, textvariable=self.dbconnected)
+        shp_comp_label = tk.Label(import_frame, textvariable=self.shp_comp)
+
+        ### Delete tab
+        # TODO: Implement Search function
+        tk.Label(delete_frame, width=12, text="Layers:").grid(column=0, row=1)
+        tk.Entry(delete_frame, width=50, textvariable=self.search_layername).grid(column=1, row=1)
+        self.layer_listbox = tk.Listbox(delete_frame, width=50, selectmode=tk.MULTIPLE)
+        ttk.Button(delete_frame, text="search", command=lambda: search_item(
+                   self,
+                   pattern=self.search_layername.get(),
+                   listbox_type=__raster__
+        )).grid(column=2, row=1)
+        self.layer_listbox.grid(column=1, row=2)
+        tk.Button(
+            delete_frame,
+            text="Delete",
+            command=lambda: delete_layer(self, indexes=self.layer_listbox.curselection()),
+        ).grid(column=2, row=2)
+
+
+        def search_item(self,pattern: str, listbox_type: str):
+            if listbox_type is __shapefile__:
+                self.filtered_tables = [table for table in self.table_names if re.search(pattern, table)]
+                self.table_listbox.delete(0, tk.END)
+                self.populate_listbox(listbox=self.table_listbox, layers=self.filtered_tables)
+            else:
+                self.filtered_layers = [layer for layer in self.layers if re.search(pattern, layer)]
+                self.layer_listbox.delete(0, tk.END)
+                self.populate_listbox(listbox=self.layer_listbox, layers=self.filtered_layers)
+                
+
+        def delete_layer(self, indexes):
+            for i in indexes:
+                print("Deleting " + self.filtered_layers[i])
+                print(
+                    self.geo.delete_layer(
+                        layer_name=self.filtered_layers[i], workspace=self.workspace.get()
+                    )
+                )
+                self.layers.remove(self.filtered_layers[i])
+            self.layer_listbox.delete(0, tk.END)
+            self.populate_listbox(listbox=self.layer_listbox, layers=self.layers)
+
+        tk.Label(delete_frame, width=12, text="Tables:").grid(column=0, row=3)
+        tk.Entry(delete_frame, width=50, textvariable=self.search_tablename).grid(column=1, row=3)
+        ttk.Button(delete_frame, text="search", command=lambda: search_item(
+                   self,
+                   pattern=self.search_tablename.get(),
+                   listbox_type=__shapefile__
+        )).grid(column=2, row=3)
+        self.table_listbox = tk.Listbox(delete_frame, width=50, selectmode=tk.MULTIPLE)
+        self.table_listbox.grid(column=1, row=4)
+        tk.Button(
+            delete_frame,
+            text="Delete",
+            command=lambda: delete_table(self, self.table_listbox.curselection()),
+        ).grid(column=2, row=4)
+
+        def delete_table(self, table_arr):
+            for i in table_arr:
+                print("Deleting " + self.filtered_tables[i])
+                print(
+                    drop_table(self, self.filtered_tables[i])
+                )
+                self.table_names.remove(self.filtered_tables[i])
+            self.table_listbox.delete(0, tk.END)
+            self.populate_listbox(listbox=self.table_listbox, layers=self.table_names)
+
+        def drop_table(self, table_name):
+            base = declarative_base()
+            metadata = sa.MetaData()
+            warnings.filterwarnings("ignore", category=sqlalchemy.exc.SAWarning)
+            metadata.reflect(bind=self.engine)
+            table = metadata.tables[table_name]
+            if table is not None:
+                base.metadata.drop_all(self.engine, [table], checkfirst=True)
+
+
 
         # geoserver hostname field
         host_label.grid(column=0, row=1)
@@ -140,15 +235,29 @@ class GeoImporter(tk.Frame):
 
         # Shapefile directory path field
         shape_listbox.grid(column=0, row=12)
+
         # display if the shapefiles succesfully imported
         shp_comp_label.grid(column=0, row=13)
 
         # add x and y padding to every component
-        for child in mainframe.winfo_children():
+        for child in import_frame.winfo_children():
             child.grid_configure(padx=5, pady=5)
 
     def set_engine(self, engine):
         self.engine = engine
+
+    def populate_listbox(self, listbox, layers):
+        for item in layers:
+            listbox.insert("end", item)
+
+    def populate_tablebox(self):
+        if self.engine is None:
+            print("Something went wrong")
+        metadata = sa.MetaData(schema="public")
+        warnings.filterwarnings("ignore", category=sqlalchemy.exc.SAWarning)
+        metadata.reflect(bind=self.engine)
+        self.table_names = [item[7:] for item in list(metadata.tables.keys())]
+        self.populate_listbox(self.table_listbox, self.table_names)
 
     def geoconnect(self):
         """
@@ -163,10 +272,14 @@ class GeoImporter(tk.Frame):
             self.geo.get_version()["about"]
             self.connected.set("Connected!")
             print("Connected to Geoserver")
+            self.layers = [
+                obj["name"]
+                for obj in self.geo.get_layers(self.workspace.get())["layers"]["layer"]
+            ]
+            self.populate_listbox(listbox=self.layer_listbox, layers=self.layers)
         except Exception:
             logging.exception("Error Connecting to Geoserver!")
             self.connected.set("Error Connection failed!")
-            pass
 
     def create_workspace(self):
         """
@@ -179,24 +292,23 @@ class GeoImporter(tk.Frame):
             self.geo.create_workspace(self.workspace.get())
             print("Workspace created")
 
-    def tiffimport(self, tiff_files: List[str]):
+    def tiff_import(self, tiff_files: List[str]):
         """
         Create workspace if exists, and import TIFF/Raster layers on to geoserver
         :return:
         """
         print("Importing Raster Files")
-        print(tiff_files)
         count = 0
         for file in tiff_files:
             if not os.path.isfile(file):
                 self.tiff_comp.set("Error! Could not find raster file.")
-                return False
-            else:
-                if upload_raster(
-                    geoserver=self.geo, filepath=file, workspace=self.workspace.get()
-                ):
-                    count += 1
-                    print("Successfully uploaded " + os.path.basename(file))
+            if upload_raster(
+                geoserver=self.geo, filepath=file, workspace=self.workspace.get()
+            ):
+                count += 1
+                filename = os.path.basename(file)[:-4]
+                print("Successfully uploaded " + filename)
+                self.layers.append(filename)
         self.tiff_comp.set("Successfully uploaded " + str(count) + " Raster Files!")
 
     def upload_sequence(self, file, count, error):
@@ -216,7 +328,10 @@ class GeoImporter(tk.Frame):
                     storename=self.storename.get(),
                 ):
                     count += 1
-                    print("Successfully uploaded " + os.path.basename(file))
+                    filename = os.path.basename(file[:-4])
+                    print("Successfully uploaded " + filename)
+                    self.table_names.append(filename)
+                    self.layers.append(filename)
             else:
                 error.append(os.path.basename(file))
                 print(error)
@@ -236,6 +351,7 @@ class GeoImporter(tk.Frame):
         if count == len(shp_files):
             self.shp_comp.set("Successfully uploaded all Shapefiles!")
         else:
+            print(count)
             error_layers = " ".join(error)
             self.shp_comp.set("There was an error in " + error_layers)
 
@@ -264,7 +380,7 @@ class GeoImporter(tk.Frame):
         else:
             print("Geoserver not connected")
 
-        if type(store_exists) is str:
+        if isinstance(store_exists, str):
             self.geo.create_featurestore(
                 store_name=store,
                 workspace=workspace,
@@ -287,6 +403,7 @@ class GeoImporter(tk.Frame):
             logging.exception("Error connecting to database")
             self.dbconnected.set("Failed to connect to database!")
         self.set_engine(engine)
+        self.populate_tablebox()
 
 
 if __name__ == "__main__":
