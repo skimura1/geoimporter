@@ -1,22 +1,21 @@
+import logging
 import os
 import re
-import logging
-import warnings
-
 import tkinter as tk
+import warnings
 from tkinter import Listbox, StringVar, ttk
 from typing import List
 
 import sqlalchemy as sa
-from sqlalchemy.engine.base import Engine
 import sqlalchemy.exc
-from sqlalchemy.orm import declarative_base
-from geo.Geoserver import Geoserver
 from dotenv import load_dotenv
+from geo.Geoserver import Geoserver
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.orm import declarative_base
 
-from geoserver_rest import upload_raster, upload_postgis, upload_shapefile
 from components.labeled_entry import LabeledEntry
 from components.listboxbutton_entry import ListBoxandButtons
+from geoserver_rest import upload_postgis, upload_raster, upload_shapefile
 
 load_dotenv()
 __shapefile__ = "SHAPEFILE"
@@ -40,21 +39,21 @@ class GeoImporter(tk.Frame):
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
-        self.geo_host = tk.StringVar(value="https://crcgeo.soest.hawaii.edu/geoserver")
-        self.geo_user = tk.StringVar(value="admin")
+        self.geo_host = tk.StringVar(value=os.getenv('GEOSERVER'))
+        self.geo_user = tk.StringVar(value=os.getenv('GEOSERVER_USER'))
         self.geo_pass = tk.StringVar(value=os.getenv('GEOSERVER_PASS'))
         self.connected = tk.StringVar()
-        self.workspace = tk.StringVar(value="CRC")
+        self.workspace = tk.StringVar(value=os.getenv('GEOSERVER_WORKSPACE'))
         self.tiff_files = []
         self.tiff_comp = tk.StringVar()
-        self.pg_user = tk.StringVar(value="docker")
-        self.pg_pass = tk.StringVar(value=os.getenv('DB_PASS'))
-        self.pg_host = tk.StringVar(value="128.171.159.31")
-        self.pg_port = tk.StringVar(value="32767")
-        self.pg_database = tk.StringVar(value="PUC_SLR_Viewer")
+        self.pg_user = tk.StringVar(value=os.getenv('PG_USER'))
+        self.pg_pass = tk.StringVar(value=os.getenv('PG_PASS'))
+        self.pg_host = tk.StringVar(value=os.getenv('PG_HOST'))
+        self.pg_port = tk.StringVar(value=os.getenv('PG_PORT'))
+        self.pg_database = tk.StringVar(value=os.getenv('PG_DATABASE'))
         self.shp_files = []
         self.shp_comp = tk.StringVar()
-        self.storename = tk.StringVar(value="SLR Viewer")
+        self.storename = tk.StringVar(value=os.getenv('STORENAME'))
         self.engine: Engine = sa.create_engine("postgresql://test:testpassword@localhost:5432/data")
         self.dbconnected = tk.StringVar()
         self.search_layername = tk.StringVar()
@@ -118,7 +117,6 @@ class GeoImporter(tk.Frame):
         shp_comp_label = tk.Label(import_frame, textvariable=self.shp_comp)
 
         ### Delete tab
-        # TODO: Implement Search function
         tk.Label(delete_frame, width=12, text="Layers:").grid(column=0, row=1)
         tk.Entry(delete_frame, width=50, textvariable=self.search_layername).grid(column=1, row=1)
         self.layer_listbox = tk.Listbox(delete_frame, width=50, selectmode=tk.MULTIPLE)
@@ -147,6 +145,7 @@ class GeoImporter(tk.Frame):
                 
 
         def delete_layer(self, indexes):
+            print(self.filtered_layers)
             for i in indexes:
                 print("Deleting " + self.filtered_layers[i])
                 print(
@@ -276,6 +275,7 @@ class GeoImporter(tk.Frame):
                 obj["name"]
                 for obj in self.geo.get_layers(self.workspace.get())["layers"]["layer"]
             ]
+            self.filtered_layers = self.layers
             self.populate_listbox(listbox=self.layer_listbox, layers=self.layers)
         except Exception:
             logging.exception("Error Connecting to Geoserver!")
