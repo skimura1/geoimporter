@@ -19,8 +19,7 @@ to a PostgreSQL/PostGIS DB. The tool has been created to have a graphical interf
 
 Python 3.7 or higher
 Python-3-dev Package
-GDAL 3.2 or higher
-Pipenv
+GDAL 3.2 or higher~
 
 ## Environment Setup
 
@@ -69,7 +68,7 @@ https://mothergeo-py.readthedocs.io/en/latest/development/how-to/gdal-ubuntu-pkg
 If you are running a linux distro, run the command below to install the correct GDAL version
 
 ```
-pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}')
+ip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}')
 ```
 
 ## Instructions
