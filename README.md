@@ -21,9 +21,16 @@ Python 3.7 or higher
 Python-3-dev Package
 GDAL 3.2 or higher~
 
+## Quick Setup
+
+Install dependency packages including debian packages:
+configuration.bat: windows
+configuration.sh: debian linux
+
+
 ## Environment Setup
 
-Execute `pipenv install` to install depending files
+Execute `pip install -r requirements.txt` to install version of the packages that the tool was developed with.
 
 ## Installing TK
 
@@ -84,23 +91,28 @@ ip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}')
 1. Insert geoserver URL
 2. Insert geoserver username
 3. Insert geoserver password
-4. Click connect
-   Create Workspace if necessary
-   4a. Insert workspace name in Workspace field
-   4b. Click Create
-   Import Raster Layer
-5. Insert path inside field
-   5a. Click "Dir" button
-   5b. Navigate to path that the raster files are stored
-6. Click Import
-   Connect to PostgreSQL/PostGIS DB
-7. Insert Postgres user
-8. Insert Postgres Password
-9. Insert Postgres host
-10. Insert Postgres Port
-11. Insert name of DB into storename field
-12. Click DB Connect (Will Confirm connection)
-13. Insert Shapefile Path
-    13a. Click Dir
-    13b. Navigate to path that the shapefiles are stored
-14. Click Import
+4. Click Connect button
+5. Insert workspace name in Workspace field
+6. Click "Dir" button
+5a. Navigate to path that the raster files are stored and select files
+7. Click Import
+
+### Connect to PostgreSQL/PostGIS DB
+
+1. Insert Postgres user in PG User
+2. Insert Postgres password in PG Pass Field
+3. Insert Postgres ip address or hostname in PG Host Field
+4. Insert Postgres port in Port field
+5. Insert Postgres DB into PG DB field
+6. Click DB Connect
+7. Click Dir
+8. Navigate to path that the shapefiles are stored and select files
+9. Click Import
+
+### Delete from Geoserver
+
+1. Go to Delete tab at the top
+2. Type in layer/table name if necessary in input bar
+3. Click search button
+4. Click layer/s that need to be deleted
+5. Click delete button
