@@ -17,9 +17,8 @@ to a PostgreSQL/PostGIS DB. The tool has been created to have a graphical interf
 
 ## Requirements
 
-Python 3.7 or higher
-Python-3-dev Package
-GDAL 3.2 or higher~
+Python 3.12 or higher
+Anaconda 24.4.0 or higher
 
 ## Quick Setup
 
@@ -30,53 +29,15 @@ configuration.sh: debian linux
 
 ## Environment Setup
 
-Execute `pip install -r requirements.txt` to install version of the packages that the tool was developed with.
+Use Anaconda to install environment for ease of setup. This also allows for cross platform envrionment setup with the corresponding environmnt yml files.
 
-## Installing TK
+### Anaconda for Windows
 
-### Windows
+`conda env create -f ./environments/win_environment.yml`
 
-Tkinter should be a default packages that is installed in Python packages, so there should not be any further configuration.
+### Anaconda for Linux
 
-### Debian-based Distro
-
-You will need to install python tk package with command below:
-
-```
-sudo apt-get install python3-tk
-```
-
-Or you can build from source
-
-source: https://tkdocs.com/tutorial/install.html
-
-## Installing GDAL
-
-### Windows
-
-You will have to use an extension package for GDAL in order to run on Windows. Be sure to use the corresponding python version (ex. GDAL-3.4.1-cp39-cp39-win_amd64.whl for python version 3.9) Use the link below to download the file:
-
-https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal
-
-Run the code to install the extension
-
-```
-pip install D:\Downloads\GDAL-3.4.1-cpXX-cpXX-win_amd64.whl
-```
-
-You can also use Conda to install all of the dependencies for the project. However, if you intend on using PyInstaller, there will be conflicts between default conda packages and pyinstaller packages on **Windows**
-
-Source: https://stackoverflow.com/questions/70892737/trying-to-install-gdal-python-3-9-9-pip-windows-10
-
-### Debian-based Distro
-
-https://mothergeo-py.readthedocs.io/en/latest/development/how-to/gdal-ubuntu-pkg.html
-
-If you are running a linux distro, run the command below to install the correct GDAL version
-
-```
-ip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}')
-```
+`conda env create -f ./environments/linux_environment.yml`
 
 ## Instructions
 
@@ -109,10 +70,11 @@ ip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}')
 8. Navigate to path that the shapefiles are stored and select files
 9. Click Import
 
-### Delete from Geoserver
 
-1. Go to Delete tab at the top
-2. Type in layer/table name if necessary in input bar
-3. Click search button
-4. Click layer/s that need to be deleted
-5. Click delete button
+## Upcoming 
+
+- Geoserver deletion for Stores and Layers
+- Geoserver publishing for Layers
+- Uploading to PostGIS
+- Deleting from PostGIS
+- List Layers on PostGIS
