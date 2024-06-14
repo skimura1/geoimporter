@@ -23,6 +23,14 @@ __raster__ = "RASTER"
 
 
 class GeoImporter(tk.Frame):
+    """ 
+    This class create the instance of Geoimporter on a TKinter Frame
+
+    Attributes:
+        parent: Set the parent frame to the initial TKinter Frame
+        args: Additonal Arguments passed to app if needed
+        kwargs: Additional positional args passed to app if needed
+    """
     def __init__(self, parent, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
@@ -31,9 +39,10 @@ class GeoImporter(tk.Frame):
 
         # initiate the tkinter frame to hold widgets
         import_frame = ttk.Frame(tab_control, padding="3 3 12 12")
-        delete_frame = ttk.Frame(tab_control, padding="3 3 12 12")
+        # TODO: Fix Deletion
+        # delete_frame = ttk.Frame(tab_control, padding="3 3 12 12")
         tab_control.add(import_frame, text="Import")
-        tab_control.add(delete_frame, text="Delete")
+        # tab_control.add(delete_frame, text="Delete")
         tab_control.grid(column=0, row=0)
         root.title("Geoimporter")
         _ = root.columnconfigure(0, weight=1)
@@ -272,8 +281,16 @@ class GeoImporter(tk.Frame):
 
     def geoconnect(self):
         """
-        Connect to the geoserver
-        :return:
+        Connect to the Geoserver
+        Args:
+            Void
+
+        Returns:
+            Void
+
+        Raises:
+            Exception to log error connecting to Geoserver
+            
         """
         host = self.geo_host.get()
         username = self.geo_user.get()
@@ -296,7 +313,13 @@ class GeoImporter(tk.Frame):
     def create_workspace(self):
         """
         Check if the workspace exists, if not, create a workspace
-        :return:
+        Args:
+            Void
+
+        Return:
+            Void
+
+        Raises:
         """
         if self.geo.get_workspace(self.workspace.get()):
             print("Workspace exists")
@@ -306,8 +329,15 @@ class GeoImporter(tk.Frame):
 
     def tiff_import(self, paths: list[Path]):
         """
-        Create workspace if exists, and import TIFF/Raster layers on to geoserver
-        :return:
+        Importer Raster files
+
+        Args:
+            The list of paths of the raster files
+
+        Return:
+            Void
+
+        Raises:
         """
         print("Importing Raster Files")
         count = 0
@@ -326,7 +356,12 @@ class GeoImporter(tk.Frame):
     def upload_sequence(self, path: Path):
         """
         Abstract away the nested upload sequence for easier readability.
-        :return bool:
+
+        Args:
+            path: The path to each file to upload
+            
+        Return:
+            bool: If uploading to PostGIS and Geoserver is successful
         """
         if not path.is_file():
             self.shp_comp.set("Error! Could not find shapefile.")
@@ -351,7 +386,12 @@ class GeoImporter(tk.Frame):
         """
         Create workspace if doesn't exists, and import shape files
         onto PG DB and publish on geoserver
-        :return bool:
+
+        Args:
+            shp_files: List of paths for the shape files to upload
+
+        Return: 
+            Void
         """
         print("Importing Shape Files")
         count = 0
@@ -371,6 +411,12 @@ class GeoImporter(tk.Frame):
     def pg_connect(self):
         """
         Create featurestore and connect to PG DB
+
+        Args:
+            Void
+
+        Return:
+            Void
         """
         user = self.pg_user.get()
         passw = self.pg_pass.get()
@@ -410,6 +456,18 @@ class GeoImporter(tk.Frame):
         self.populate_tablebox()
 
     def is_store_exists(self, geoserver: Geoserver, store: tk.StringVar, workspace: tk.StringVar):
+        """
+        Check if the store exists already on the Geoserver
+
+        Args:
+            geoserver: The Geoserver handle to execute operations
+            store: The specific store that we want to check on Geoserver
+            workspace: The workspace on the Geoserver that the store exists on
+
+        Return:
+            TODO Fix this to be guarantee that we get a boolean
+           Unknown | None: Whether the store exists ore not
+        """
         # Could maybe have another function for the geoserver functions
         if geoserver.get_version():
             return geoserver.get_featurestore(
