@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import StringVar, Variable, ttk
+from tkinter import Variable, ttk
 from typing import Callable
 
 
@@ -16,15 +16,14 @@ class LabeledEntry(tk.Frame):
     """
     def __init__(
         self,
-        master: tk.Frame,
+        master: ttk.Frame,
+        entry_text: Variable,
         label_text: str ="",
-        entry_text: Variable|None  = None,
         show: str="",
         button_func: Callable[[], None] | None = None,
         button_label: str="",
-        **kwargs
     ):
-        super().__init__(master, **kwargs)
+        super().__init__(master)
         self.label = tk.Label(self, width=12, text=label_text)
         self.label.pack(side=tk.LEFT)
 

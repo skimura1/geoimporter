@@ -7,7 +7,7 @@ __shapefile__ = "SHAPEFILE"
 __raster__ = "RASTER"
 
 
-class ListBoxandButtons(tk.Frame):
+class ListBoxandButtons(ttk.Frame):
     """ 
     This class bundle the listbox and button components
 
@@ -21,13 +21,12 @@ class ListBoxandButtons(tk.Frame):
     def __init__(
         self,
         import_files: list[Path],
+        import_func: Callable[[list[Path]], None],
         master: ttk.Frame|None = None,
         label_text: str="",
         type: str="",
-        import_func: Callable[[], None] =lambda: None,
-        **kwargs
     ):
-        super().__init__(master, **kwargs)
+        super().__init__(master)
         self.import_files = import_files
         self.import_func = import_func
         self.type = type
@@ -64,8 +63,12 @@ class ListBoxandButtons(tk.Frame):
 
         """
         self.import_files: list[Path] = []
+        files = []
 
+        # Clear Listbox before populating
         listbox.delete(0, tk.END)
+
+
         if type == __shapefile__:
             files = filedialog.askopenfilenames(filetypes=[("Shapefiles", "*.shp")])
         else:
@@ -92,14 +95,10 @@ class DeleteBoxandButtons(tk.Frame):
     """
     def __init__(
         self,
-        import_files: list[Path],
-        master: ttk.Frame|None = None,
-        label_text: str="",
-        type: str="",
-        import_func: Callable[[], None] =lambda: None,
-        **kwargs
+        master: ttk.Frame,
+        label_text,
     ):
-        super().__init__(master, **kwargs)
+        super().__init__(master)
         # Shapefile directory path field
         self.listbox: tk.Listbox = tk.Listbox(self, width=20, selectmode=tk.MULTIPLE)
         self.label = tk.Label(self, width=12, text=label_text)
