@@ -30,16 +30,15 @@ class LabeledEntry(tk.Frame):
         if show == "*":
             self.entry = tk.Entry(
                 self, width=20, textvariable=entry_text, show="*"
-            ).pack(side=tk.LEFT)
-        else:
-            self.entry = tk.Entry(self, width=20, textvariable=entry_text).pack(
-                side=tk.LEFT
             )
+            self.entry.pack(side=tk.LEFT)
+        else:
+            self.entry = tk.Entry(self, width=20, textvariable=entry_text)
+            self.entry.pack(side=tk.LEFT)
 
         if button_func is not None:
-            self.button = ttk.Button(self, text=button_label, command=button_func).pack(
-                side=tk.LEFT
-            )
+            self.button = ttk.Button(self, text=button_label, command=button_func)
+            self.button.pack(side=tk.LEFT)
         else:
             tk.Label(self, width=10).pack(side=tk.LEFT)
 

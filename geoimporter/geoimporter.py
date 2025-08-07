@@ -5,6 +5,7 @@ import tkinter as tk
 import warnings
 from pathlib import Path
 from tkinter import ttk
+from typing import Optional
 
 import sqlalchemy as sa
 import sqlalchemy.exc
@@ -13,11 +14,26 @@ from geo.Geoserver import Geoserver, GeoserverException
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm import declarative_base
 
-from helpers.labeled_entry import LabeledEntry
-from helpers.listboxbutton_entry import ListBoxandButtons
-from helpers.geoserver_rest import upload_postgis, upload_raster, upload_shapefile
+try:
+    from .helpers.labeled_entry import LabeledEntry
+    from .helpers.listboxbutton_entry import ListBoxandButtons
+    from .helpers.geoserver_rest import upload_postgis, upload_raster, upload_shapefile
+except ImportError:
+    from helpers.labeled_entry import LabeledEntry
+    from helpers.listboxbutton_entry import ListBoxandButtons
+    from helpers.geoserver_rest import upload_postgis, upload_raster, upload_shapefile
 
-_= load_dotenv()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('geoimporter.log'),
+        logging.StreamHandler()
+    ]
+)
+
+load_dotenv()
 __shapefile__ = "SHAPEFILE"
 __raster__ = "RASTER"
 
@@ -35,7 +51,7 @@ class GeoImporter(tk.Frame):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
 
-        tab_control = ttk.Notebook(root)
+        tab_control = ttk.Notebook(parent)
 
         # initiate the tkinter frame to hold widgets
         import_frame = ttk.Frame(tab_control, padding="3 3 12 12")
@@ -44,9 +60,9 @@ class GeoImporter(tk.Frame):
         tab_control.add(import_frame, text="Import")
         tab_control.add(delete_frame, text="Delete")
         tab_control.grid(column=0, row=0)
-        root.title("Geoimporter")
-        _ = root.columnconfigure(0, weight=1)
-        _ = root.rowconfigure(0, weight=1)
+        parent.title("Geoimporter")
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
 
         self.geo: Geoserver = Geoserver()
         self.geo_host = tk.StringVar(value=os.getenv("GEOSERVER"))
@@ -64,9 +80,7 @@ class GeoImporter(tk.Frame):
         self.shp_files = []
         self.shp_comp = tk.StringVar()
         self.storename = tk.StringVar(value=os.getenv("STORENAME"))
-        self.engine: Engine = sa.create_engine(
-            "postgresql://test:testpassword@localhost:5432/data"
-        )
+        self.engine: Optional[Engine] = None
         self.dbconnected = tk.StringVar()
         self.search_layername = tk.StringVar()
         self.search_tablename = tk.StringVar()
@@ -125,71 +139,23 @@ class GeoImporter(tk.Frame):
         ttk.Button(
             delete_frame,
             text="search",
-            command=lambda: search_item(
-                self, pattern=self.search_layername.get(), listbox=self.layer_listbox, original_list=self.layers, list_name="filtered_layers"
+            command=lambda: self.search_item(
+                pattern=self.search_layername.get(), 
+                listbox=self.layer_listbox, 
+                original_list=self.layers, 
+                list_name="filtered_layers"
             ),
         ).grid(column=2, row=1)
         self.layer_listbox.grid(column=1, row=2)
         tk.Button(
             delete_frame,
             text="delete",
-            command=lambda: delete_layer(
-                self, self.layer_listbox.curselection()
+            command=lambda: self.delete_layer(
+                self.layer_listbox.curselection()
             ),
         ).grid(column=2, row=2)
 
 
-        # TODO: Extract this function outside of class to helpers
-        def search_item(self, pattern: str, listbox: tk.Listbox, original_list: list[str], list_name: str):
-            """ 
-            Update filtered_list based on search pattern
-
-            Args:
-                pattern: search pattern
-                listbox: the listbox we want to update
-                original_list: static list of original items
-                filtered_list: updated list based on search
-
-            """
-
-            filtered_list: list[str] = []
-
-            if pattern == "":
-                filtered_list = original_list
-            else:
-                filtered_list = [
-                    table for table in original_list if re.search(pattern.lower(), table.lower())
-                ]
-
-            setattr(self, list_name, filtered_list)
-
-            listbox.delete(0, tk.END)
-            self.populate_listbox(
-                listbox=listbox, items=filtered_list
-            )
-
-
-        def delete_layer(self, indexes: list[int]):
-            """ 
-            Delete each tables from TK Listbox selection
-
-            Args:
-                indexes : list of the indexes relative to filtered_layers 
-
-            """
-            for i in indexes:
-                print("Deleting " + self.filtered_layers[i])
-                try:
-                    self.geo.delete_layer(
-                        layer_name=self.filtered_layers[i],
-                        workspace=self.workspace.get(),
-                    )
-                except GeoserverException as e:
-                    logging.error("Geoserver Error: ", e)
-                else:
-                    self.layers.remove(self.filtered_layers[i])
-            self.layer_listbox.delete(0, tk.END)
-            self.populate_listbox(listbox=self.layer_listbox, items=self.layers)
 
         tk.Label(delete_frame, width=12, text="Tables:").grid(column=0, row=3)
         tk.Entry(delete_frame, width=50, textvariable=self.search_tablename).grid(
@@ -198,8 +164,11 @@ class GeoImporter(tk.Frame):
         ttk.Button(
             delete_frame,
             text="search",
-            command=lambda: search_item(
-                self, pattern=self.search_tablename.get(), listbox=self.table_listbox, original_list=self.table_names, list_name="filtered_tables"
+            command=lambda: self.search_item(
+                pattern=self.search_tablename.get(), 
+                listbox=self.table_listbox, 
+                original_list=self.table_names, 
+                list_name="filtered_tables"
             ),
         ).grid(column=2, row=3)
         self.table_listbox = tk.Listbox(delete_frame, width=50, selectmode=tk.MULTIPLE)
@@ -207,7 +176,7 @@ class GeoImporter(tk.Frame):
         tk.Button(
             delete_frame,
             text="Delete",
-            command=lambda: delete_tables(self, self.table_listbox.curselection()),
+            command=lambda: self.delete_tables(self.table_listbox.curselection()),
         ).grid(column=2, row=4)
 
         # Reset Cache Button (Probably not gonna enable this one)
@@ -219,49 +188,6 @@ class GeoImporter(tk.Frame):
 
         # Drop Table Operations
 
-        def drop_table(self, table_name):
-            """ 
-            Drop table from Postgres Database
-
-            Args:
-                table_name: name of table we drop
-
-            """
-            base = declarative_base()
-            metadata = sa.MetaData()
-            warnings.filterwarnings("ignore", category=sqlalchemy.exc.SAWarning)
-            metadata.reflect(bind=self.engine)
-            table = metadata.tables[table_name]
-            if table is not None:
-                print(f'Deleting {table_name} table from PostGIS')
-                base.metadata.drop_all(self.engine, [table], checkfirst=True)
-            else:
-                raise sqlalchemy.exc.SQLAlchemyError("Table does not exist in PostGIS")
-
-        def delete_tables(self, indexes: list[int]):
-            """ 
-            Delete each tables from TK Listbox selection
-
-            Args:
-                table_arr: list of the indexes relative to filtered_table 
-
-            """
-            print(self.filtered_tables)
-
-            for i in indexes:
-                print(self.filtered_tables[i])
-                # Delete table from PostGIS
-                try: 
-                    drop_table(self, self.filtered_tables[i])
-                except sqlalchemy.exc.SQLAlchemyError as e:
-                    logging.error("Error:", e)
-                else:
-                    # Remove table from original table name list
-                    self.table_names.remove(self.filtered_tables[i])
-
-            # Reset shapebox table listbox
-            self.table_listbox.delete(0, tk.END)
-            self.populate_listbox(listbox=self.table_listbox, items=self.table_names)
 
 
         # geoserver hostname field
@@ -427,7 +353,7 @@ class GeoImporter(tk.Frame):
         self.tiff_comp.set("Successfully uploaded " + str(count) + " Raster Files!")
 
     # TODO: Fix Error Action + better name for function
-    def upload_sequence(self, path: Path):
+    def upload_sequence(self, path: Path) -> bool:
         """
         Abstract away the nested upload sequence for easier readability.
 
@@ -438,8 +364,14 @@ class GeoImporter(tk.Frame):
             bool: If uploading to PostGIS and Geoserver is successful
         """
         if not path.is_file():
-            self.shp_comp.set("Error! Could not find shapefile.")
-        else:
+            self.shp_comp.set(f"Error! Could not find shapefile: {path}")
+            return False
+            
+        if self.engine is None:
+            self.shp_comp.set("Error! Database not connected.")
+            return False
+            
+        try:
             # Uploading to POSTGIS succeeds, we can upload to Geoserver
             if upload_postgis(path, self.engine):
                 if upload_shapefile(
@@ -450,88 +382,112 @@ class GeoImporter(tk.Frame):
                 ):
                     print("Successfully uploaded " + path.name)
                     # Update table to include new shapefile uploaded
-                    self.table_names.append(path.name)
-                    self.layers.append(path.name)
+                    self.table_names.append(path.stem)
+                    self.layers.append(path.stem)
                     return True
+        except Exception as e:
+            logging.error("Error in upload sequence for %s: %s", path.name, e)
+            self.shp_comp.set(f"Error uploading {path.name}: {str(e)}")
+            
         return False
 
-    # TODO: Fix error catching
-    def shpimport(self, shp_files: list[Path]):
+    def shpimport(self, shp_files: list[Path]) -> None:
         """
-        Create workspace if doesn't exists, and import shape files
+        Create workspace if doesn't exist, and import shape files
         onto PG DB and publish on geoserver
 
         Args:
             shp_files: List of paths for the shape files to upload
-
-        Return: 
-            Void
         """
+        if not shp_files:
+            self.shp_comp.set("No files selected for import.")
+            return
+            
         print("Importing Shape Files")
         count = 0
-        error: list[str] = []
-        for file in shp_files:
-            file_path = Path(file)
-            # Upload to file to Geoserver
+        failed_files: list[str] = []
+        
+        for file_path in shp_files:
             if self.upload_sequence(file_path):
                 count += 1
-                error.append(file_path.name)
+            else:
+                failed_files.append(file_path.name)
+                
         if count == len(shp_files):
-            self.shp_comp.set("Successfully uploaded all Shapefiles!")
+            self.shp_comp.set(f"Successfully uploaded all {count} Shapefiles!")
+        elif count > 0:
+            self.shp_comp.set(f"Uploaded {count}/{len(shp_files)} files. Failed: {', '.join(failed_files)}")
         else:
-            error_layers = " ".join(error)
-            self.shp_comp.set("There was an error in " + error_layers)
+            self.shp_comp.set("Failed to upload any files.")
 
-    def pg_connect(self):
+    def pg_connect(self) -> None:
         """
         Create featurestore and connect to PG DB
-
-        Args:
-            Void
-
-        Return:
-            Void
         """
-        user = self.pg_user.get()
-        passw = self.pg_pass.get()
-        host = self.pg_host.get()
-        port = str(self.pg_port.get())
-        db = self.pg_database.get()
-        store = self.storename.get()
-        workspace = self.workspace.get()
-        engine = sa.create_engine(
-            "postgresql://" + user + ":" + passw + "@" + host + ":" + port + "/" + db
-        )
-        store_exists = self.is_store_exists(self.geo, self.storename, self.workspace)
-
-        if store_exists is None:
-            self.geo.create_featurestore(
-                store_name=store,
-                workspace=workspace,
-                db=db,
-                host=host,
-                port=int(port),
-                pg_user=user,
-                pg_password=passw,
-                schema="public",
-            )
-            print("Feature store created!")
-        else:
-            print("Feature store exists!")
-
+        user = self.pg_user.get().strip()
+        password = self.pg_pass.get().strip()
+        host = self.pg_host.get().strip()
+        port = self.pg_port.get().strip()
+        db = self.pg_database.get().strip()
+        store = self.storename.get().strip()
+        workspace = self.workspace.get().strip()
+        
+        # Validate required fields
+        if not all([user, password, host, port, db, store, workspace]):
+            self.dbconnected.set("Error: All fields are required!")
+            return
+            
         try:
-            engine.connect()
+            port_int = int(port)
+        except ValueError:
+            self.dbconnected.set("Error: Port must be a number!")
+            return
+            
+        try:
+            connection_string = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+            engine = sa.create_engine(connection_string)
+            
+            # Test the connection
+            with engine.connect() as conn:
+                conn.execute(sa.text("SELECT 1"))
+                
             print("Database Connected!")
             self.dbconnected.set("Database connected!")
-        except sqlalchemy.exc.OperationalError:
-            logging.exception("Error connecting to database")
-            self.dbconnected.set("Failed to connect to database!")
-        self.set_engine(engine)
-        if self.engine is None:
-            print("Something went wrong")
-        insp = sa.inspect(self.engine)
-        self.table_names = self.filtered_tables = insp.get_table_names()
-        self.populate_listbox(listbox=self.table_listbox, items=self.table_names)
+            self.set_engine(engine)
+            
+            # Handle featurestore creation
+            store_exists = self.is_store_exists(self.geo, self.storename, self.workspace)
+            if store_exists is None:
+                try:
+                    self.geo.create_featurestore(
+                        store_name=store,
+                        workspace=workspace,
+                        db=db,
+                        host=host,
+                        port=port_int,
+                        pg_user=user,
+                        pg_password=password,
+                        schema="public",
+                    )
+                    print("Feature store created!")
+                except Exception as e:
+                    logging.error("Error creating featurestore: %s", e)
+                    self.dbconnected.set(f"Connected to DB but featurestore creation failed: {e}")
+            else:
+                print("Feature store exists!")
+                
+            # Populate table list
+            insp = sa.inspect(self.engine)
+            self.table_names = insp.get_table_names()
+            self.filtered_tables = self.table_names
+            self.populate_listbox(listbox=self.table_listbox, items=self.table_names)
+            
+        except sqlalchemy.exc.OperationalError as e:
+            logging.error("Database connection error: %s", e)
+            self.dbconnected.set(f"Failed to connect: {str(e)}")
+        except Exception as e:
+            logging.error("Unexpected error during database connection: %s", e)
+            self.dbconnected.set(f"Connection error: {str(e)}")
 
     def is_store_exists(self, geoserver: Geoserver, store: tk.StringVar, workspace: tk.StringVar):
         """
@@ -555,8 +511,120 @@ class GeoImporter(tk.Frame):
             print("Geoserver not connected")
             return None
 
+    def search_item(self, pattern: str, listbox: tk.Listbox, original_list: list[str], list_name: str) -> None:
+        """ 
+        Update filtered_list based on search pattern
+
+        Args:
+            pattern: search pattern
+            listbox: the listbox we want to update
+            original_list: static list of original items
+            list_name: name of the attribute to update with filtered results
+
+        """
+        filtered_list: list[str] = []
+
+        if pattern == "":
+            filtered_list = original_list
+        else:
+            filtered_list = [
+                table for table in original_list if re.search(pattern.lower(), table.lower())
+            ]
+
+        setattr(self, list_name, filtered_list)
+
+        listbox.delete(0, tk.END)
+        self.populate_listbox(listbox=listbox, items=filtered_list)
+
+    def delete_layer(self, indexes: tuple[int, ...]) -> None:
+        """ 
+        Delete each layer from GeoServer based on TK Listbox selection
+
+        Args:
+            indexes: tuple of the indexes relative to filtered_layers 
+
+        """
+        for i in indexes:
+            print("Deleting " + self.filtered_layers[i])
+            try:
+                self.geo.delete_layer(
+                    layer_name=self.filtered_layers[i],
+                    workspace=self.workspace.get(),
+                )
+            except GeoserverException as e:
+                logging.error("Geoserver Error: %s", e)
+            else:
+                self.layers.remove(self.filtered_layers[i])
+        self.layer_listbox.delete(0, tk.END)
+        self.populate_listbox(listbox=self.layer_listbox, items=self.layers)
+
+    def drop_table(self, table_name: str) -> None:
+        """ 
+        Drop table from Postgres Database
+
+        Args:
+            table_name: name of table we drop
+
+        Raises:
+            SQLAlchemyError: If table doesn't exist or engine is None
+        """
+        if self.engine is None:
+            raise sqlalchemy.exc.SQLAlchemyError("Database engine not initialized")
+            
+        base = declarative_base()
+        metadata = sa.MetaData()
+        warnings.filterwarnings("ignore", category=sqlalchemy.exc.SAWarning)
+        metadata.reflect(bind=self.engine)
+        
+        if table_name in metadata.tables:
+            table = metadata.tables[table_name]
+            print(f'Deleting {table_name} table from PostGIS')
+            base.metadata.drop_all(self.engine, [table], checkfirst=True)
+        else:
+            raise sqlalchemy.exc.SQLAlchemyError(f"Table '{table_name}' does not exist in PostGIS")
+
+    def delete_tables(self, indexes: tuple[int, ...]) -> None:
+        """ 
+        Delete each table from PostGIS based on TK Listbox selection
+
+        Args:
+            indexes: tuple of the indexes relative to filtered_tables 
+
+        """
+        print(self.filtered_tables)
+
+        for i in indexes:
+            print(self.filtered_tables[i])
+            try: 
+                self.drop_table(self.filtered_tables[i])
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                logging.error("Error: %s", e)
+            else:
+                self.table_names.remove(self.filtered_tables[i])
+
+        self.table_listbox.delete(0, tk.END)
+        self.populate_listbox(listbox=self.table_listbox, items=self.table_names)
+
+
+def main() -> None:
+    """Main entry point for the GeoImporter application."""
+    try:
+        root = tk.Tk()
+        root.geometry("800x600")
+        root.resizable(True, True)
+        
+        app = GeoImporter(root)
+        app.grid(column=0, row=0, sticky="nsew")
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(0, weight=1)
+        
+        logging.info("GeoImporter application started")
+        root.mainloop()
+        
+    except Exception as e:
+        logging.error("Fatal error starting application: %s", e)
+        raise
+
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    GeoImporter(root)
-    root.mainloop()
+    main()
